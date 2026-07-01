@@ -325,10 +325,12 @@
                                 <tr>
                                     <th>MAC Address</th>
                                     <th>Device Name</th>
-                                    <th>Location</th>
                                     <th>Scanner</th>
+                                    <th>Building</th>
+                                    <th>Floor</th>
+                                    <th>Current Location</th>
                                     <th>RSSI</th>
-                                    <th>Battery Level</th>
+                                    <th>Battery</th>
                                     <th>Status</th>
                                     <th>Last Seen</th>
                                 </tr>
@@ -460,17 +462,18 @@
                         batteryColor = 'bg-warning';
                     }
 
-                    // Format Location (null -> Unknown)
-                    const locationText = device.location === null ? 'Unknown' : device.location;
-
-                    // Scanner (display Scanner-01)
-                    const scannerText = 'Scanner-01';
+                    const scannerText = device.scannerName || '-';
+                    const buildingText = device.building || '-';
+                    const floorText = device.floor || '-';
+                    const locationText = device.location || '-';
 
                     row.innerHTML = `
                         <td class="mac-addr">${device.macAddress}</td>
                         <td class="dev-name">${device.deviceName || '-'}</td>
-                        <td>${locationText}</td>
                         <td>${scannerText}</td>
+                        <td>${buildingText}</td>
+                        <td>${floorText}</td>
+                        <td>${locationText}</td>
                         <td class="rssi-value">${device.rssi ? `${device.rssi} dBm` : '-'}</td>
                         <td>
                             <div class="d-flex align-items-center gap-2">

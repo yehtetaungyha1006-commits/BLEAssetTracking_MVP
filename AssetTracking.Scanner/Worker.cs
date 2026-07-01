@@ -20,11 +20,11 @@ namespace AssetTracking.Scanner
         // Device simulation list
         private readonly List<BeaconSimulationState> _devices = new()
         {
-            new BeaconSimulationState("00:11:22:33:44:55", "Beacon-01", 95, 0.0, 0.0, 0.0, false),
-            new BeaconSimulationState("00:11:22:33:44:66", "Beacon-02", 78, 10.0, 15.0, 1.2, true),
-            new BeaconSimulationState("00:11:22:33:44:77", "Beacon-03", 15, -5.0, 8.5, 0.5, false), // Starts at 15% battery
-            new BeaconSimulationState("00:11:22:33:44:88", "Beacon-04", 62, 100.0, -50.0, 0.0, false), // Intermittent connection
-            new BeaconSimulationState("00:11:22:33:44:99", "Beacon-05", 45, 2.5, -3.2, 0.1, true)
+            new BeaconSimulationState("00:11:22:33:44:55", "Beacon-01", 95, 0.0, 0.0, 0.0, false, 616, 10),
+            new BeaconSimulationState("00:11:22:33:44:66", "Beacon-02", 78, 10.0, 15.0, 1.2, true, 616, 20),
+            new BeaconSimulationState("00:11:22:33:44:77", "Beacon-03", 15, -5.0, 8.5, 0.5, false, 616, 30),
+            new BeaconSimulationState("00:11:22:33:44:88", "Beacon-04", 62, 100.0, -50.0, 0.0, false, 616, 40),
+            new BeaconSimulationState("00:11:22:33:44:99", "Beacon-05", 45, 2.5, -3.2, 0.1, true, 616, 50)
         };
 
         public Worker(ILogger<Worker> logger)
@@ -89,7 +89,14 @@ namespace AssetTracking.Scanner
                         YAxis = device.Y,
                         ZAxis = device.Z,
                         IsMoving = device.IsMoving,
-                        ReceiveTime = DateTime.UtcNow
+                        ReceiveTime = DateTime.UtcNow,
+                        ScannerId = "Scanner-Sim",
+                        ScannerName = "Simulated Scanner",
+                        ScannerBuilding = "B",
+                        ScannerFloor = "1",
+                        ScannerLocation = "Warehouse",
+                        Major = device.Major,
+                        Minor = device.Minor
                     };
 
                     try
@@ -124,8 +131,10 @@ namespace AssetTracking.Scanner
             public double Z { get; set; }
             public bool IsMoving { get; set; }
             public int Rssi { get; set; }
-
-            public BeaconSimulationState(string mac, string name, int battery, double x, double y, double z, bool moving)
+            public int Major { get; }
+            public int Minor { get; }
+ 
+            public BeaconSimulationState(string mac, string name, int battery, double x, double y, double z, bool moving, int major, int minor)
             {
                 MacAddress = mac;
                 DeviceName = name;
@@ -135,6 +144,8 @@ namespace AssetTracking.Scanner
                 Z = z;
                 IsMoving = moving;
                 Rssi = -55; // Default RSSI
+                Major = major;
+                Minor = minor;
             }
         }
     }

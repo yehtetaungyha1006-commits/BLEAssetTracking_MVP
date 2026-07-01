@@ -35,53 +35,60 @@ namespace AssetTracking.Web.Controllers
 
             try
             {
-                // Find or create the beacon device by MacAddress
+                // Find registered BeaconDevice by Major + Minor
                 var device = await _context.BeaconDevices
-                    .FirstOrDefaultAsync(d => d.MacAddress == telemetryDto.MacAddress);
-
-                if (device == null && telemetryDto.MacAddress == "E2C56DB5-DFFB-48D2-B060-D0F5A71096E0-1-616")
-                {
-                    // Fallback to locate the existing Minew E7 device under its old MAC address format
-                    device = await _context.BeaconDevices
-                        .FirstOrDefaultAsync(d => d.MacAddress == "E2C56DB5-1-616");
-                    
-                    if (device != null)
-                    {
-                        // Migrate the MAC address to the new format to keep it working seamlessly
-                        device.MacAddress = telemetryDto.MacAddress;
-                        _logger.LogInformation("Migrated device MAC address from old format to {MacAddress}", telemetryDto.MacAddress);
-                    }
-                }
+                    .FirstOrDefaultAsync(d => d.Major == telemetryDto.Major && d.Minor == telemetryDto.Minor);
 
                 if (device == null)
                 {
-                    device = new BeaconDevice
-                    {
-                        MacAddress = telemetryDto.MacAddress,
-                        DeviceName = string.IsNullOrEmpty(telemetryDto.DeviceName) ? "Minew E7" : telemetryDto.DeviceName,
-                        Status = "Online",
-                        LastSeen = DateTime.Now
-                    };
-                    _context.BeaconDevices.Add(device);
-                }
-                else
-                {
-                    // Update device fields
-                    if (!string.IsNullOrEmpty(telemetryDto.DeviceName))
-                    {
-                        device.DeviceName = telemetryDto.DeviceName;
-                    }
-                    device.Status = "Online";
-                    device.LastSeen = DateTime.Now;
+                    // Ignore telemetry, return unregistered message, and log details for debugging
+                    _logger.LogWarning("Unregistered beacon ignored: Major={Major}, Minor={Minor}, RSSI={RSSI}", 
+                        telemetryDto.Major, telemetryDto.Minor, telemetryDto.Rssi);
+                    return Ok(new { status = "Ignored", message = "Unregistered beacon ignored" });
                 }
 
-                // Save changes to generate DeviceId for new devices
+                // Update registered device fields
+                device.Status = "Online";
+                device.LastSeen = DateTime.Now;
+
+                // Save changes
                 await _context.SaveChangesAsync();
+
+                // Process Scanner Auto-registration / Update
+                ScannerDevice? scanner = null;
+                if (!string.IsNullOrEmpty(telemetryDto.ScannerId))
+                {
+                    scanner = await _context.Scanners
+                        .FirstOrDefaultAsync(s => s.ScannerId == telemetryDto.ScannerId);
+
+                    if (scanner == null)
+                    {
+                        scanner = new ScannerDevice
+                        {
+                            ScannerId = telemetryDto.ScannerId,
+                            ScannerName = telemetryDto.ScannerId,
+                            Building = "Unknown",
+                            Floor = "Unknown",
+                            Location = "Unknown",
+                            Status = "Online",
+                            LastSeen = DateTime.Now,
+                            CreatedAt = DateTime.Now
+                        };
+                        _context.Scanners.Add(scanner);
+                    }
+                    else
+                    {
+                        scanner.Status = "Online";
+                        scanner.LastSeen = DateTime.Now;
+                    }
+                    await _context.SaveChangesAsync();
+                }
 
                 // Create and insert the telemetry log
                 var telemetry = new BeaconTelemetry
                 {
                     DeviceId = device.DeviceId,
+                    ScannerId = telemetryDto.ScannerId,
                     Rssi = telemetryDto.Rssi,
                     BatteryLevel = telemetryDto.BatteryLevel,
                     XAxis = telemetryDto.XAxis,
@@ -97,6 +104,16 @@ namespace AssetTracking.Web.Controllers
                 _logger.LogInformation("Persisted telemetry for device {DeviceName} ({MacAddress}) into database", device.DeviceName, device.MacAddress);
 
                 // Broadcast to SignalR clients for the dashboard
+                telemetryDto.MacAddress = device.MacAddress;
+                telemetryDto.DeviceName = device.DeviceName ?? "Registered Beacon";
+                if (scanner != null)
+                {
+                    telemetryDto.ScannerName = scanner.ScannerName;
+                    telemetryDto.ScannerBuilding = scanner.Building;
+                    telemetryDto.ScannerFloor = scanner.Floor;
+                    telemetryDto.ScannerLocation = scanner.Location;
+                }
+
                 await _hubContext.Clients.All.SendAsync("BeaconUpdate", telemetryDto);
 
                 return Ok(new { status = "Success", message = "Telemetry persisted and broadcasted" });

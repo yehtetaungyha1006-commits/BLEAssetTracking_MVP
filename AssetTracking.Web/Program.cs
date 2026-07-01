@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using AssetTracking.Web.Data;
+using AssetTracking.Web.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -33,4 +34,10 @@ app.MapControllerRoute(
     name: "default",
     pattern: "{controller=Home}/{action=Index}/{id?}");
 
+// Seeding registered beacons and scanners
+using (var scope = app.Services.CreateScope())
+{
+    var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+    context.Database.Migrate();
+}
 app.Run();

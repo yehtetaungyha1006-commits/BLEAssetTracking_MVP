@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using Windows.Devices.Bluetooth.Advertisement;
 using Windows.Storage.Streams;
 using AssetTracking.Shared;
@@ -19,7 +20,7 @@ namespace AssetTracking.Scanner
         private BluetoothLEAdvertisementWatcher? _watcher;
         
         // Target settings
-        private const string TargetUuid = "E2C56DB5-DFFB-48D2-B060-D0F5A71096E0";
+        private const string TargetUuid = "53495445-4C54-5241-494E-454554455354";
 
         // Dynamic beacons state tracking
         private class BeaconState
@@ -28,14 +29,18 @@ namespace AssetTracking.Scanner
             public string DeviceName { get; set; } = string.Empty;
             public short LatestRssi { get; set; }
             public DateTimeOffset LastSeen { get; set; }
+            public int Major { get; set; }
+            public int Minor { get; set; }
         }
 
         private readonly System.Collections.Generic.Dictionary<string, BeaconState> _detectedBeacons = new();
         private readonly object _stateLock = new();
+        private readonly IConfiguration _configuration;
 
-        public BleScannerService(ILogger<BleScannerService> logger)
+        public BleScannerService(ILogger<BleScannerService> logger, IConfiguration configuration)
         {
             _logger = logger;
+            _configuration = configuration;
             _httpClient = new HttpClient();
         }
 
@@ -87,14 +92,16 @@ namespace AssetTracking.Scanner
                             MacAddress = kvp.Value.MacAddress,
                             DeviceName = kvp.Value.DeviceName,
                             LatestRssi = kvp.Value.LatestRssi,
-                            LastSeen = kvp.Value.LastSeen
+                            LastSeen = kvp.Value.LastSeen,
+                            Major = kvp.Value.Major,
+                            Minor = kvp.Value.Minor
                         });
                     }
                 }
 
                 foreach (var beacon in beaconsToReport)
                 {
-                    await SendTelemetryAsync(beacon.MacAddress, beacon.DeviceName, beacon.LatestRssi, stoppingToken);
+                    await SendTelemetryAsync(beacon.MacAddress, beacon.DeviceName, beacon.LatestRssi, beacon.Major, beacon.Minor, stoppingToken);
                 }
 
                 await Task.Delay(2000, stoppingToken);
@@ -117,63 +124,55 @@ namespace AssetTracking.Scanner
                         // iBeacon prefix indicator: 0x02, 0x15
                         if (dataBytes[0] == 0x02 && dataBytes[1] == 0x15)
                         {
-                            // Extract UUID bytes and format as string (Big Endian)
-                            string uuidStr = string.Format("{0:X2}{1:X2}{2:X2}{3:X2}-{4:X2}{5:X2}-{6:X2}{7:X2}-{8:X2}{9:X2}-{10:X2}{11:X2}{12:X2}{13:X2}{14:X2}{15:X2}",
-                                dataBytes[2], dataBytes[3], dataBytes[4], dataBytes[5],
-                                dataBytes[6], dataBytes[7],
-                                dataBytes[8], dataBytes[9],
-                                dataBytes[10], dataBytes[11],
-                                dataBytes[12], dataBytes[13], dataBytes[14], dataBytes[15], dataBytes[16], dataBytes[17]);
-
                             // Extract Major & Minor (Big Endian)
                             ushort major = (ushort)((dataBytes[18] << 8) | dataBytes[19]);
                             ushort minor = (ushort)((dataBytes[20] << 8) | dataBytes[21]);
 
-                            // Check target Minew E7 beacon match
-                            if (string.Equals(uuidStr, TargetUuid, StringComparison.OrdinalIgnoreCase) &&
-                                major == 616 &&
-                                (minor == 1 || minor == 2))
+                            // Format real MAC address from args.BluetoothAddress
+                            ulong address = args.BluetoothAddress;
+                            string realMac = string.Format("{0:X2}:{1:X2}:{2:X2}:{3:X2}:{4:X2}:{5:X2}",
+                                (byte)((address >> 40) & 0xFF),
+                                (byte)((address >> 32) & 0xFF),
+                                (byte)((address >> 24) & 0xFF),
+                                (byte)((address >> 16) & 0xFF),
+                                (byte)((address >> 8) & 0xFF),
+                                (byte)(address & 0xFF));
+
+                            string macAddress;
+                            if (major == 616 && minor == 1)
                             {
-                                // Format real MAC address from args.BluetoothAddress
-                                ulong address = args.BluetoothAddress;
-                                string realMac = string.Format("{0:X2}:{1:X2}:{2:X2}:{3:X2}:{4:X2}:{5:X2}",
-                                    (byte)((address >> 40) & 0xFF),
-                                    (byte)((address >> 32) & 0xFF),
-                                    (byte)((address >> 24) & 0xFF),
-                                    (byte)((address >> 16) & 0xFF),
-                                    (byte)((address >> 8) & 0xFF),
-                                    (byte)(address & 0xFF));
-
-                                string cleanMac = realMac.Replace(":", "").ToUpperInvariant();
-
-                                string macAddress;
-                                if (cleanMac == "C300004F89CB")
+                                macAddress = "C3:00:00:4F:89:CB";
+                            }
+                            else if (major == 616 && minor == 2)
+                            {
+                                macAddress = "C3:00:00:4F:89:CD";
+                            }
+                            else
+                            {
+                                macAddress = realMac;
+                            }
+                            string deviceName = $"iBeacon ({major}-{minor})";
+ 
+                            lock (_stateLock)
+                            {
+                                if (_detectedBeacons.TryGetValue(macAddress, out var state))
                                 {
-                                    macAddress = "C3:00:00:4F:89:CB";
+                                    state.LatestRssi = args.RawSignalStrengthInDBm;
+                                    state.LastSeen = DateTimeOffset.Now;
+                                    state.Major = major;
+                                    state.Minor = minor;
                                 }
                                 else
                                 {
-                                    macAddress = realMac;
-                                }
-                                string deviceName = $"Minew E7 ({major}-{minor})";
-
-                                lock (_stateLock)
-                                {
-                                    if (_detectedBeacons.TryGetValue(macAddress, out var state))
+                                    _detectedBeacons[macAddress] = new BeaconState
                                     {
-                                        state.LatestRssi = args.RawSignalStrengthInDBm;
-                                        state.LastSeen = DateTimeOffset.Now;
-                                    }
-                                    else
-                                    {
-                                        _detectedBeacons[macAddress] = new BeaconState
-                                        {
-                                            MacAddress = macAddress,
-                                            DeviceName = deviceName,
-                                            LatestRssi = args.RawSignalStrengthInDBm,
-                                            LastSeen = DateTimeOffset.Now
-                                        };
-                                    }
+                                        MacAddress = macAddress,
+                                        DeviceName = deviceName,
+                                        LatestRssi = args.RawSignalStrengthInDBm,
+                                        LastSeen = DateTimeOffset.Now,
+                                        Major = major,
+                                        Minor = minor
+                                    };
                                 }
                             }
                         }
@@ -186,9 +185,12 @@ namespace AssetTracking.Scanner
             }
         }
 
-        private async Task SendTelemetryAsync(string macAddress, string deviceName, short rssi, CancellationToken stoppingToken)
+        private async Task SendTelemetryAsync(string macAddress, string deviceName, short rssi, int major, int minor, CancellationToken stoppingToken)
         {
             var receiveTime = DateTime.Now;
+            var scannerId = _configuration["ScannerSettings:ScannerId"] ?? "Scanner-01";
+            var scannerBuilding = _configuration["ScannerSettings:Building"] ?? "A";
+
             var telemetry = new BeaconTelemetryDto
             {
                 MacAddress = macAddress,
@@ -199,15 +201,19 @@ namespace AssetTracking.Scanner
                 YAxis = 0.0,
                 ZAxis = 0.0,
                 IsMoving = false,
-                ReceiveTime = receiveTime
+                ReceiveTime = receiveTime,
+                ScannerId = scannerId,
+                ScannerBuilding = scannerBuilding,
+                Major = major,
+                Minor = minor
             };
-
+ 
             try
             {
                 var response = await _httpClient.PostAsJsonAsync("http://localhost:5176/api/beacon/telemetry", telemetry, stoppingToken);
                 if (response.IsSuccessStatusCode)
                 {
-                    _logger.LogInformation("{DeviceName} sent to API | RSSI: {RSSI} | Time: {ReceiveTime}", deviceName, rssi, receiveTime);
+                    _logger.LogInformation("Minew E7 sent to API | Scanner: {ScannerId} | RSSI: {Rssi}", scannerId, rssi);
                 }
             }
             catch (Exception ex)

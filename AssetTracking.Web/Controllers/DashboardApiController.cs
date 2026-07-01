@@ -26,6 +26,7 @@ namespace AssetTracking.Web.Controllers
                 // Fetch all devices including their telemetries (excluding demo devices)
                 var devices = await _context.BeaconDevices
                     .Include(d => d.Telemetries)
+                        .ThenInclude(t => t.Scanner)
                     .Where(d => !d.MacAddress.StartsWith("00:11:22:33:44"))
                     .ToListAsync();
 
@@ -40,10 +41,16 @@ namespace AssetTracking.Web.Controllers
 
                 var deviceData = devices.Select(device =>
                 {
-                    // Find latest telemetry by ReceiveTime descending
-                    var latestTelemetry = device.Telemetries
-                        .OrderByDescending(t => t.ReceiveTime)
-                        .FirstOrDefault();
+                    // Find telemetries within the active online window (last 10 seconds)
+                    var activeTelemetries = device.Telemetries
+                        .Where(t => t.ReceiveTime >= onlineCutoff)
+                        .ToList();
+
+                    // If multiple scanners detected the beacon recently, choose the one with the highest RSSI.
+                    // Otherwise fall back to the most recent telemetry.
+                    var latestTelemetry = activeTelemetries.Any()
+                        ? activeTelemetries.OrderByDescending(t => t.Rssi).FirstOrDefault()
+                        : device.Telemetries.OrderByDescending(t => t.ReceiveTime).FirstOrDefault();
 
                     // Calculate online/idle/offline status dynamically from LastSeen and DateTime.Now
                     string status = "Offline";
@@ -90,7 +97,6 @@ namespace AssetTracking.Web.Controllers
                     {
                         macAddress = device.MacAddress,
                         deviceName = device.DeviceName,
-                        location = device.Location,
                         rssi = latestTelemetry?.Rssi ?? 0,
                         batteryLevel = latestTelemetry?.BatteryLevel ?? 0,
                         xAxis = latestTelemetry?.XAxis ?? 0.0,
@@ -98,7 +104,12 @@ namespace AssetTracking.Web.Controllers
                         zAxis = latestTelemetry?.ZAxis ?? 0.0,
                         isMoving = isMoving,
                         status = status,
-                        lastSeen = device.LastSeen
+                        lastSeen = device.LastSeen,
+                        scannerId = latestTelemetry?.Scanner?.ScannerId,
+                        scannerName = latestTelemetry?.Scanner?.ScannerName,
+                        building = latestTelemetry?.Scanner?.Building,
+                        floor = latestTelemetry?.Scanner?.Floor,
+                        location = latestTelemetry?.Scanner?.Location
                     };
                 }).ToList();
 

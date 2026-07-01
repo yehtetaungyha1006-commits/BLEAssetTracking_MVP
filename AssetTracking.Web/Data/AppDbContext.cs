@@ -12,10 +12,23 @@ namespace AssetTracking.Web.Data
         public DbSet<BeaconDevice> BeaconDevices { get; set; }
         public DbSet<BeaconTelemetry> BeaconTelemetries { get; set; }
         public DbSet<AlertLog> AlertLogs { get; set; }
+        public DbSet<ScannerDevice> Scanners { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Configure ScannerDevice
+            modelBuilder.Entity<ScannerDevice>(entity =>
+            {
+                entity.HasKey(e => e.ScannerId);
+                entity.Property(e => e.ScannerName).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Building).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Floor).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.Location).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+            });
 
             // Configure BeaconDevice
             modelBuilder.Entity<BeaconDevice>(entity =>
@@ -23,6 +36,7 @@ namespace AssetTracking.Web.Data
                 entity.HasKey(e => e.DeviceId);
                 entity.Property(e => e.MacAddress).IsRequired().HasMaxLength(50);
                 entity.HasIndex(e => e.MacAddress).IsUnique();
+                entity.HasIndex(e => new { e.Major, e.Minor }).IsUnique();
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
             });
 
@@ -37,6 +51,12 @@ namespace AssetTracking.Web.Data
                       .WithMany(d => d.Telemetries)
                       .HasForeignKey(t => t.DeviceId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                // Relationship with ScannerDevice
+                entity.HasOne(t => t.Scanner)
+                      .WithMany(s => s.Telemetries)
+                      .HasForeignKey(t => t.ScannerId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
 
             // Configure AlertLog

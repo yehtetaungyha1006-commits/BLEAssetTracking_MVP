@@ -13,5 +13,14 @@ namespace AssetTracking.Shared
         public double ZAxis { get; set; }
         public bool IsMoving { get; set; }
         public DateTime ReceiveTime { get; set; }
+
+        public int Major { get; set; }
+        public int Minor { get; set; }
+
+        public string? ScannerId { get; set; }
+        public string? ScannerName { get; set; }
+        public string? ScannerBuilding { get; set; }
+        public string? ScannerFloor { get; set; }
+        public string? ScannerLocation { get; set; }
     }
 }

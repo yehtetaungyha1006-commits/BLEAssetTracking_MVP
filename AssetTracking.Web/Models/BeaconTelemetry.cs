@@ -16,5 +16,9 @@ namespace AssetTracking.Web.Models
 
         // Navigation property
         public BeaconDevice? Device { get; set; }
+
+        // Scanner relationship
+        public string? ScannerId { get; set; }
+        public ScannerDevice? Scanner { get; set; }
     }
 }

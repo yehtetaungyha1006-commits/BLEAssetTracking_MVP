@@ -8,8 +8,9 @@ namespace AssetTracking.Web.Models
         public int DeviceId { get; set; }
         public string MacAddress { get; set; } = string.Empty;
         public string? DeviceName { get; set; }
-        public string? Location { get; set; }
         public string? Status { get; set; }
+        public int Major { get; set; }
+        public int Minor { get; set; }
         public DateTime? LastSeen { get; set; }
         public DateTime CreatedAt { get; set; }
 
