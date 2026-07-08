@@ -37,6 +37,10 @@ namespace AssetTracking.Scanner
         private readonly object _stateLock = new();
         private readonly IConfiguration _configuration;
 
+        private int TelemetryIntervalSeconds => _configuration.GetValue<int?>("ScannerSettings:TelemetryIntervalSeconds") ?? 2;
+        private int OfflineTimeoutSeconds => _configuration.GetValue<int?>("ScannerSettings:OfflineTimeoutSeconds") ?? 30;
+        private int MinimumRssi => _configuration.GetValue<int?>("ScannerSettings:MinimumRssi") ?? -100;
+
         public BleScannerService(ILogger<BleScannerService> logger, IConfiguration configuration)
         {
             _logger = logger;
@@ -73,9 +77,9 @@ namespace AssetTracking.Scanner
 
                 lock (_stateLock)
                 {
-                    // Clean up beacons not seen for > 30 seconds
+                    // Clean up beacons not seen for > OfflineTimeoutSeconds
                     var expiredKeys = _detectedBeacons
-                        .Where(kvp => (now - kvp.Value.LastSeen) > TimeSpan.FromSeconds(30))
+                        .Where(kvp => (now - kvp.Value.LastSeen) > TimeSpan.FromSeconds(OfflineTimeoutSeconds))
                         .Select(kvp => kvp.Key)
                         .ToList();
 
@@ -104,7 +108,7 @@ namespace AssetTracking.Scanner
                     await SendTelemetryAsync(beacon.MacAddress, beacon.DeviceName, beacon.LatestRssi, beacon.Major, beacon.Minor, stoppingToken);
                 }
 
-                await Task.Delay(2000, stoppingToken);
+                await Task.Delay(TelemetryIntervalSeconds * 1000, stoppingToken);
             }
         }
 
@@ -151,7 +155,13 @@ namespace AssetTracking.Scanner
                             {
                                 macAddress = realMac;
                             }
-                            string deviceName = $"iBeacon ({major}-{minor})";
+                             string deviceName = $"iBeacon ({major}-{minor})";
+
+                             short rssi = args.RawSignalStrengthInDBm;
+                             if (rssi < MinimumRssi)
+                             {
+                                 continue;
+                             }
  
                             lock (_stateLock)
                             {
@@ -188,7 +198,7 @@ namespace AssetTracking.Scanner
         private async Task SendTelemetryAsync(string macAddress, string deviceName, short rssi, int major, int minor, CancellationToken stoppingToken)
         {
             var receiveTime = DateTime.Now;
-            var scannerId = _configuration["ScannerSettings:ScannerId"] ?? "Scanner-01";
+            var scannerId = Environment.MachineName;
             var scannerBuilding = _configuration["ScannerSettings:Building"] ?? "A";
 
             var telemetry = new BeaconTelemetryDto
@@ -203,6 +213,7 @@ namespace AssetTracking.Scanner
                 IsMoving = false,
                 ReceiveTime = receiveTime,
                 ScannerId = scannerId,
+                ScannerName = scannerId,
                 ScannerBuilding = scannerBuilding,
                 Major = major,
                 Minor = minor

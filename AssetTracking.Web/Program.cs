@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using AssetTracking.Web.Data;
 using AssetTracking.Web.Models;
+using AssetTracking.Web.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -9,6 +10,9 @@ builder.Services.AddControllersWithViews();
 builder.Services.AddSignalR();
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+
+builder.Services.AddScoped<AlertEngine>();
+builder.Services.AddHostedService<AlertMonitoringWorker>();
 
 var app = builder.Build();
 

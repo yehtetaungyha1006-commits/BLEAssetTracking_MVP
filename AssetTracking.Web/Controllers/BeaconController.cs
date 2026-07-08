@@ -8,6 +8,8 @@ using AssetTracking.Web.Hubs;
 using System;
 using System.Threading.Tasks;
 
+using AssetTracking.Web.Services;
+
 namespace AssetTracking.Web.Controllers
 {
     [ApiController]
@@ -17,12 +19,16 @@ namespace AssetTracking.Web.Controllers
         private readonly AppDbContext _context;
         private readonly IHubContext<BeaconHub> _hubContext;
         private readonly ILogger<BeaconController> _logger;
+        private readonly AlertEngine _alertEngine;
+        private readonly IConfiguration _configuration;
 
-        public BeaconController(AppDbContext context, IHubContext<BeaconHub> hubContext, ILogger<BeaconController> logger)
+        public BeaconController(AppDbContext context, IHubContext<BeaconHub> hubContext, ILogger<BeaconController> logger, AlertEngine alertEngine, IConfiguration configuration)
         {
             _context = context;
             _hubContext = hubContext;
             _logger = logger;
+            _alertEngine = alertEngine;
+            _configuration = configuration;
         }
 
         [HttpPost("telemetry")]
@@ -41,6 +47,9 @@ namespace AssetTracking.Web.Controllers
 
                 if (device == null)
                 {
+                    // Trigger Unknown Beacon Alert
+                    await _alertEngine.ProcessUnknownBeaconAlertAsync(telemetryDto.Major, telemetryDto.Minor, telemetryDto.Rssi);
+
                     // Ignore telemetry, return unregistered message, and log details for debugging
                     _logger.LogWarning("Unregistered beacon ignored: Major={Major}, Minor={Minor}, RSSI={RSSI}", 
                         telemetryDto.Major, telemetryDto.Minor, telemetryDto.Rssi);
@@ -61,27 +70,35 @@ namespace AssetTracking.Web.Controllers
                     scanner = await _context.Scanners
                         .FirstOrDefaultAsync(s => s.ScannerId == telemetryDto.ScannerId);
 
-                    if (scanner == null)
-                    {
-                        scanner = new ScannerDevice
-                        {
-                            ScannerId = telemetryDto.ScannerId,
-                            ScannerName = telemetryDto.ScannerId,
-                            Building = "Unknown",
-                            Floor = "Unknown",
-                            Location = "Unknown",
-                            Status = "Online",
-                            LastSeen = DateTime.Now,
-                            CreatedAt = DateTime.Now
-                        };
-                        _context.Scanners.Add(scanner);
-                    }
+                     if (scanner == null)
+                     {
+                         bool enableAutoReg = _configuration.GetValue<bool?>("ScannerSettings:EnableAutoRegistration") ?? true;
+                         if (enableAutoReg)
+                         {
+                             scanner = new ScannerDevice
+                             {
+                                 ScannerId = telemetryDto.ScannerId,
+                                 ScannerName = telemetryDto.ScannerId,
+                                 Building = "Unknown",
+                                 Floor = "Unknown",
+                                 Location = "Unknown",
+                                 Status = "Online",
+                                 LastSeen = DateTime.Now,
+                                 CreatedAt = DateTime.Now
+                             };
+                             _context.Scanners.Add(scanner);
+                             await _context.SaveChangesAsync();
+
+                             // Trigger New Scanner Alert
+                             await _alertEngine.ProcessNewScannerAlertAsync(scanner);
+                         }
+                     }
                     else
                     {
                         scanner.Status = "Online";
                         scanner.LastSeen = DateTime.Now;
+                        await _context.SaveChangesAsync();
                     }
-                    await _context.SaveChangesAsync();
                 }
 
                 // Create and insert the telemetry log
@@ -100,6 +117,9 @@ namespace AssetTracking.Web.Controllers
                 
                 _context.BeaconTelemetries.Add(telemetry);
                 await _context.SaveChangesAsync();
+
+                // Trigger Telemetry Alert Evaluation
+                await _alertEngine.ProcessTelemetryAlertsAsync(telemetry, device);
 
                 _logger.LogInformation("Persisted telemetry for device {DeviceName} ({MacAddress}) into database", device.DeviceName, device.MacAddress);
 

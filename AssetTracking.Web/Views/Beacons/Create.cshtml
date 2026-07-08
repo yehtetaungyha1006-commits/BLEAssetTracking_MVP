@@ -1,0 +1,59 @@
+@model BeaconDevice
+@{
+    ViewData["Title"] = "Add Beacon";
+}
+
+<div class="edit-scanner-container container">
+    <div class="edit-header mb-4">
+        <h2>Add Beacon Device</h2>
+        <p class="text-muted">Register a new physical BLE beacon in the asset tracking database.</p>
+    </div>
+
+    <div class="card-form">
+        <form asp-action="Create" method="post">
+            <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="font-size: 0.9rem; font-weight: 500;"></div>
+
+            <div class="form-group-custom">
+                <label class="label-custom" asp-for="DeviceName">Device Name</label>
+                <input asp-for="DeviceName" class="form-control input-custom" placeholder="e.g. Forklift Beacon 04" />
+                <span asp-validation-for="DeviceName" class="validation-error"></span>
+            </div>
+
+            <div class="form-group-custom">
+                <label class="label-custom" asp-for="MacAddress">MAC Address</label>
+                <input asp-for="MacAddress" class="form-control input-custom" placeholder="e.g. AA:BB:CC:DD:EE:FF" />
+                <span asp-validation-for="MacAddress" class="validation-error"></span>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="form-group-custom">
+                        <label class="label-custom" asp-for="Major">Major</label>
+                        <input asp-for="Major" type="number" class="form-control input-custom" placeholder="e.g. 100" min="0" />
+                        <span asp-validation-for="Major" class="validation-error"></span>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="form-group-custom">
+                        <label class="label-custom" asp-for="Minor">Minor</label>
+                        <input asp-for="Minor" type="number" class="form-control input-custom" placeholder="e.g. 1" min="0" />
+                        <span asp-validation-for="Minor" class="validation-error"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-end gap-3 mt-4">
+                <a asp-action="Index" class="btn btn-outline-light px-4 py-2">
+                    Cancel
+                </a>
+                <button type="submit" class="btn btn-primary px-4 py-2">
+                    Create Beacon
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

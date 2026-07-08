@@ -1,492 +1,435 @@
 @{
-    Layout = null;
+    Layout = "_Layout";
 }
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BLE Asset Tracking Dashboard</title>
-    
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
-    <!-- Styling -->
-    <style>
-        :root {
-            --bg-color: #0b0f19;
-            --card-bg: rgba(30, 41, 59, 0.7);
-            --border-color: rgba(255, 255, 255, 0.08);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --primary: #6366f1;
-            
-            --online-color: #10b981;
-            --online-glow: rgba(16, 185, 129, 0.25);
-            
-            --offline-color: #64748b;
-            --offline-glow: rgba(100, 116, 139, 0.25);
-            
-            --moving-color: #3b82f6;
-            --moving-glow: rgba(59, 130, 246, 0.25);
-            
-            --low-bat-color: #f43f5e;
-            --low-bat-glow: rgba(244, 63, 94, 0.25);
-            
-            --warning-color: #f59e0b;
-        }
 
-        * {
-            box-sizing: border-box;
-            margin: 0;
-            padding: 0;
-        }
+<!-- Custom CSS for SignalR Dashboard -->
+<style>
+    :root {
+        --online-color: #10b981;
+        --online-glow: rgba(16, 185, 129, 0.25);
+        --offline-color: #64748b;
+        --offline-glow: rgba(100, 116, 139, 0.25);
+        --moving-color: #3b82f6;
+        --moving-glow: rgba(59, 130, 246, 0.25);
+        --low-bat-color: #f43f5e;
+        --low-bat-glow: rgba(244, 63, 94, 0.25);
+        --warning-color: #f59e0b;
+    }
 
-        body {
-            background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(244, 63, 94, 0.1) 0px, transparent 50%);
-            background-attachment: fixed;
-            color: var(--text-main);
-            font-family: 'Outfit', sans-serif;
-            min-height: 100vh;
-            padding: 2rem;
-        }
+    /* Header Styles */
+    .dashboard-header-inner {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 1.5rem;
+        margin-bottom: 1.5rem;
+    }
 
-        .dashboard-container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: flex;
-            flex-direction: column;
-            gap: 2rem;
-        }
+    .header-title h1 {
+        font-size: 2.25rem;
+        font-weight: 700;
+        letter-spacing: -0.025em;
+        background: linear-gradient(to right, #ffffff, #94a3b8);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+    }
 
-        /* Header Styles */
-        header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 1.5rem;
-        }
+    .header-title p {
+        color: var(--text-muted);
+        font-size: 1rem;
+        margin-top: 0.25rem;
+    }
 
-        .header-title h1 {
-            font-size: 2.25rem;
-            font-weight: 700;
-            letter-spacing: -0.025em;
-            background: linear-gradient(to right, #ffffff, #94a3b8);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+    /* SignalR Status Badge */
+    .status-badge {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        background: rgba(30, 41, 59, 0.5);
+        border: 1px solid var(--border-color);
+        border-radius: 9999px;
+        padding: 0.5rem 1.25rem;
+        font-size: 0.875rem;
+        font-weight: 500;
+        backdrop-filter: blur(10px);
+    }
 
-        .header-title p {
-            color: var(--text-muted);
-            font-size: 1rem;
-            margin-top: 0.25rem;
-        }
+    .status-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        display: inline-block;
+    }
 
-        /* SignalR Status Badge */
-        .status-badge {
-            display: flex;
-            align-items: center;
-            gap: 0.75rem;
-            background: rgba(30, 41, 59, 0.5);
-            border: 1px solid var(--border-color);
-            border-radius: 9999px;
-            padding: 0.5rem 1.25rem;
-            font-size: 0.875rem;
-            font-weight: 500;
-            backdrop-filter: blur(10px);
-        }
+    .status-connecting {
+        background-color: var(--warning-color);
+        box-shadow: 0 0 12px var(--warning-color);
+        animation: pulse-dot 1.5s infinite alternate;
+    }
 
-        .status-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            display: inline-block;
-        }
+    .status-connected {
+        background-color: var(--online-color);
+        box-shadow: 0 0 12px var(--online-color);
+        animation: pulse-dot 1.5s infinite alternate;
+    }
 
-        .status-connecting {
-            background-color: var(--warning-color);
-            box-shadow: 0 0 12px var(--warning-color);
-            animation: pulse 1.5s infinite alternate;
-        }
+    .status-disconnected {
+        background-color: var(--low-bat-color);
+        box-shadow: 0 0 12px var(--low-bat-color);
+    }
 
-        .status-connected {
-            background-color: var(--online-color);
-            box-shadow: 0 0 12px var(--online-color);
-            animation: pulse 1.5s infinite alternate;
-        }
+    @@keyframes pulse-dot {
+        0% { transform: scale(0.9); opacity: 0.6; }
+        100% { transform: scale(1.2); opacity: 1; }
+    }
 
-        .status-disconnected {
-            background-color: var(--low-bat-color);
-            box-shadow: 0 0 12px var(--low-bat-color);
-        }
+    /* Metrics Grid */
+    .metrics-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+    }
 
-        @@keyframes pulse {
-            0% { transform: scale(0.9); opacity: 0.6; }
-            100% { transform: scale(1.2); opacity: 1; }
-        }
+    .metric-card-signalr {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 1rem;
+        padding: 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
 
-        /* Metrics Grid */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 1.5rem;
-        }
+    .metric-card-signalr:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
 
-        .metric-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 1rem;
-            padding: 1.5rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.2);
-            transition: transform 0.2s ease, border-color 0.2s ease;
-        }
+    .metric-info h3 {
+        font-size: 0.875rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        font-weight: 600;
+        margin: 0;
+    }
 
-        .metric-card:hover {
-            transform: translateY(-2px);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
+    .metric-value {
+        font-size: 2.25rem;
+        font-weight: 700;
+        margin-top: 0.5rem;
+        font-feature-settings: "tnum";
+    }
 
-        .metric-info h3 {
-            font-size: 0.875rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            font-weight: 600;
-        }
+    .metric-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-        .metric-value {
-            font-size: 2.25rem;
-            font-weight: 700;
-            margin-top: 0.5rem;
-            font-feature-settings: "tnum";
-        }
+    /* Metric Icon Themes */
+    .metric-online .metric-icon {
+        background: rgba(16, 185, 129, 0.1);
+        color: var(--online-color);
+        box-shadow: inset 0 0 12px rgba(16, 185, 129, 0.05);
+    }
+    .metric-online .metric-value { color: var(--online-color); }
 
-        .metric-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 0.75rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    .metric-offline .metric-icon {
+        background: rgba(100, 116, 139, 0.15);
+        color: var(--offline-color);
+    }
+    .metric-offline .metric-value { color: #cbd5e1; }
 
-        /* Metric Icon Themes */
-        .metric-online .metric-icon {
-            background: rgba(16, 185, 129, 0.1);
-            color: var(--online-color);
-            box-shadow: inset 0 0 12px rgba(16, 185, 129, 0.05);
-        }
-        .metric-online .metric-value { color: var(--online-color); }
+    .metric-moving .metric-icon {
+        background: rgba(59, 130, 246, 0.1);
+        color: var(--moving-color);
+        box-shadow: inset 0 0 12px rgba(59, 130, 246, 0.05);
+    }
+    .metric-moving .metric-value { color: var(--moving-color); }
 
-        .metric-offline .metric-icon {
-            background: rgba(100, 116, 139, 0.15);
-            color: var(--offline-color);
-        }
-        .metric-offline .metric-value { color: #cbd5e1; }
+    .metric-low-battery .metric-icon {
+        background: rgba(244, 63, 94, 0.1);
+        color: var(--low-bat-color);
+        box-shadow: inset 0 0 12px rgba(244, 63, 94, 0.05);
+    }
+    .metric-low-battery .metric-value { color: var(--low-bat-color); }
 
-        .metric-moving .metric-icon {
-            background: rgba(59, 130, 246, 0.1);
-            color: var(--moving-color);
-            box-shadow: inset 0 0 12px rgba(59, 130, 246, 0.05);
-        }
-        .metric-moving .metric-value { color: var(--moving-color); }
+    /* Table Card Container */
+    .table-card {
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.3);
+        overflow: hidden;
+    }
 
-        .metric-low-battery .metric-icon {
-            background: rgba(244, 63, 94, 0.1);
-            color: var(--low-bat-color);
-            box-shadow: inset 0 0 12px rgba(244, 63, 94, 0.05);
-        }
-        .metric-low-battery .metric-value { color: var(--low-bat-color); }
+    .table-card-header {
+        margin-bottom: 1.25rem;
+    }
 
-        /* Table Card Container */
-        .table-card {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 1.25rem;
-            padding: 1.5rem;
-            backdrop-filter: blur(10px);
-            box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.3);
-            overflow: hidden;
-        }
+    .table-card-header h2 {
+        font-size: 1.25rem;
+        font-weight: 600;
+        margin: 0;
+    }
 
-        .table-card-header {
-            margin-bottom: 1.25rem;
-        }
+    /* Table Design */
+    .table-wrapper {
+        overflow-x: auto;
+        width: 100%;
+    }
 
-        .table-card-header h2 {
-            font-size: 1.25rem;
-            font-weight: 600;
-        }
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        text-align: left;
+        font-size: 0.95rem;
+    }
 
-        /* Table Design */
-        .table-wrapper {
-            overflow-x: auto;
-            width: 100%;
-        }
+    th {
+        padding: 1rem 1.25rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+    }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            text-align: left;
-            font-size: 0.95rem;
-        }
+    td {
+        padding: 1.1rem 1.25rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        color: #e2e8f0;
+        vertical-align: middle;
+    }
 
-        th {
-            padding: 1rem 1.25rem;
-            font-weight: 600;
-            color: var(--text-muted);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-        }
+    tbody tr {
+        transition: background-color 0.2s ease;
+    }
 
-        td {
-            padding: 1.1rem 1.25rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            color: #e2e8f0;
-            vertical-align: middle;
-        }
+    tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.02);
+    }
 
-        tbody tr {
-            transition: background-color 0.2s ease;
-        }
+    /* Typography Helper Classes */
+    .mac-address {
+        font-family: 'JetBrains Mono', monospace;
+        color: #cbd5e1;
+        font-size: 0.9rem;
+        font-weight: 500;
+    }
 
-        tbody tr:hover {
-            background-color: rgba(255, 255, 255, 0.02);
-        }
+    .device-name {
+        font-weight: 600;
+        color: #ffffff;
+    }
 
-        /* Typography Helper Classes */
-        .mac-address {
-            font-family: 'JetBrains Mono', monospace;
-            color: #cbd5e1;
-            font-size: 0.9rem;
-            font-weight: 500;
-        }
+    /* Badges */
+    .badge-online-custom {
+        background: rgba(16, 185, 129, 0.12);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
 
-        .device-name {
-            font-weight: 600;
-            color: #ffffff;
-        }
+    .badge-offline-custom {
+        background: rgba(148, 163, 184, 0.12);
+        color: #94a3b8;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+    }
 
-        /* Badges */
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            padding: 0.35rem 0.75rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            border-radius: 9999px;
-            text-transform: uppercase;
-            letter-spacing: 0.025em;
-        }
+    .badge-moving-custom {
+        background: rgba(59, 130, 246, 0.12);
+        color: #60a5fa;
+        border: 1px solid rgba(59, 130, 246, 0.2);
+    }
 
-        .badge-online {
-            background: rgba(16, 185, 129, 0.12);
-            color: #34d399;
-            border: 1px solid rgba(16, 185, 129, 0.2);
-        }
+    .badge-static-custom {
+        background: rgba(30, 41, 59, 0.6);
+        color: #94a3b8;
+        border: 1px solid rgba(255, 255, 255, 0.05);
+    }
 
-        .badge-offline {
-            background: rgba(148, 163, 184, 0.12);
-            color: #94a3b8;
-            border: 1px solid rgba(148, 163, 184, 0.2);
-        }
+    /* RSSI Bar visualization */
+    .rssi-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+        width: 120px;
+    }
 
-        .badge-moving {
-            background: rgba(59, 130, 246, 0.12);
-            color: #60a5fa;
-            border: 1px solid rgba(59, 130, 246, 0.2);
-        }
+    .rssi-value {
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #cbd5e1;
+    }
 
-        .badge-static {
-            background: rgba(30, 41, 59, 0.6);
-            color: #94a3b8;
-            border: 1px solid rgba(255, 255, 255, 0.05);
-        }
+    .rssi-bar-wrapper {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 9999px;
+        height: 6px;
+        overflow: hidden;
+        width: 100%;
+    }
 
-        /* RSSI Bar visualization */
-        .rssi-container {
-            display: flex;
-            flex-direction: column;
-            gap: 0.35rem;
-            width: 120px;
-        }
+    .rssi-bar {
+        height: 100%;
+        border-radius: 9999px;
+        transition: width 0.3s ease, background-color 0.3s ease;
+    }
 
-        .rssi-value {
-            font-size: 0.85rem;
-            font-weight: 500;
-            color: #cbd5e1;
-        }
+    .rssi-strong { background-color: var(--online-color); }
+    .rssi-medium { background-color: var(--warning-color); }
+    .rssi-weak { background-color: var(--low-bat-color); }
 
-        .rssi-bar-wrapper {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 9999px;
-            height: 6px;
-            overflow: hidden;
-            width: 100%;
-        }
+    /* Battery Indicators */
+    .battery-container {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
 
-        .rssi-bar {
-            height: 100%;
-            border-radius: 9999px;
-            transition: width 0.3s ease, background-color 0.3s ease;
-        }
+    .battery-icon {
+        font-size: 1.1rem;
+        display: flex;
+        align-items: center;
+    }
 
-        .rssi-strong { background-color: var(--online-color); }
-        .rssi-medium { background-color: var(--warning-color); }
-        .rssi-weak { background-color: var(--low-bat-color); }
+    .text-success-custom { color: #10b981; }
+    .text-warning-custom { color: #f59e0b; }
+    .text-danger-custom { color: #f43f5e; }
 
-        /* Battery Indicators */
-        .battery-container {
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
+    .coords {
+        font-family: 'JetBrains Mono', monospace;
+        color: #94a3b8;
+        font-size: 0.85rem;
+    }
 
-        .battery-icon {
-            font-size: 1.1rem;
-            display: flex;
-            align-items: center;
-        }
+    .last-seen {
+        font-variant-numeric: tabular-nums;
+        color: #cbd5e1;
+        font-weight: 500;
+    }
 
-        .text-success-custom { color: #10b981; }
-        .text-warning-custom { color: #f59e0b; }
-        .text-danger-custom { color: #f43f5e; }
+    /* Row Flash Animation */
+    @@keyframes rowFlash {
+        0% { background-color: rgba(99, 102, 241, 0.25); }
+        100% { background-color: transparent; }
+    }
 
-        .coords {
-            font-family: 'JetBrains Mono', monospace;
-            color: #94a3b8;
-            font-size: 0.85rem;
-        }
+    .row-flash {
+        animation: rowFlash 0.8s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+</style>
 
-        .last-seen {
-            font-variant-numeric: tabular-nums;
-            color: #cbd5e1;
-            font-weight: 500;
-        }
+<div class="px-2">
+    <!-- Dashboard Header -->
+    <header class="dashboard-header-inner">
+        <div class="header-title">
+            <h1>ระบบติดตามสถานะอุปกรณ์ครุภัณฑ์ โรงพยาบาลศิริราช</h1>
+            <p>Siriraj Hospital Asset Tracking System</p>
+        </div>
+        
+        <div class="status-badge">
+            <span id="connection-indicator" class="status-dot status-connecting"></span>
+            <span>SignalR: <strong id="connection-status">Connecting...</strong></span>
+        </div>
+    </header>
 
-        /* Row Flash Animation */
-        @@keyframes rowFlash {
-            0% { background-color: rgba(99, 102, 241, 0.25); }
-            100% { background-color: transparent; }
-        }
-
-        .row-flash {
-            animation: rowFlash 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-        }
-    </style>
-</head>
-<body>
-    <div class="dashboard-container">
-        <!-- Dashboard Header -->
-        <header>
-            <div class="header-title">
-                <h1>BLE Asset Tracker</h1>
-                <p>Real-time asset positioning and telemetry dashboard</p>
+    <!-- Metrics Cards -->
+    <section class="metrics-grid">
+        <!-- Online Cards -->
+        <div class="metric-card-signalr metric-online">
+            <div class="metric-info">
+                <h3>Online Devices</h3>
+                <div id="count-online" class="metric-value">0</div>
             </div>
-            
-            <div class="status-badge">
-                <span id="connection-indicator" class="status-dot status-connecting"></span>
-                <span>SignalR: <strong id="connection-status">Connecting...</strong></span>
+            <div class="metric-icon">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
             </div>
-        </header>
+        </div>
 
-        <!-- Metrics Cards -->
-        <section class="metrics-grid">
-            <!-- Online Cards -->
-            <div class="metric-card metric-online">
-                <div class="metric-info">
-                    <h3>Online Devices</h3>
-                    <div id="count-online" class="metric-value">0</div>
-                </div>
-                <div class="metric-icon">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
+        <!-- Offline Card -->
+        <div class="metric-card-signalr metric-offline">
+            <div class="metric-info">
+                <h3>Offline Devices</h3>
+                <div id="count-offline" class="metric-value">0</div>
             </div>
+            <div class="metric-icon">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+            </div>
+        </div>
 
-            <!-- Offline Card -->
-            <div class="metric-card metric-offline">
-                <div class="metric-info">
-                    <h3>Offline Devices</h3>
-                    <div id="count-offline" class="metric-value">0</div>
-                </div>
-                <div class="metric-icon">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                </div>
+        <!-- Moving Card -->
+        <div class="metric-card-signalr metric-moving">
+            <div class="metric-info">
+                <h3>Moving Devices</h3>
+                <div id="count-moving" class="metric-value">0</div>
             </div>
+            <div class="metric-icon">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+            </div>
+        </div>
 
-            <!-- Moving Card -->
-            <div class="metric-card metric-moving">
-                <div class="metric-info">
-                    <h3>Moving Devices</h3>
-                    <div id="count-moving" class="metric-value">0</div>
-                </div>
-                <div class="metric-icon">
-                    <!-- SVG running/moving wave -->
-                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                    </svg>
-                </div>
+        <!-- Low Battery Card -->
+        <div class="metric-card-signalr metric-low-battery">
+            <div class="metric-info">
+                <h3>Low Battery (&lt;20%)</h3>
+                <div id="count-low-battery" class="metric-value">0</div>
             </div>
+            <div class="metric-icon">
+                <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+        </div>
+    </section>
 
-            <!-- Low Battery Card -->
-            <div class="metric-card metric-low-battery">
-                <div class="metric-info">
-                    <h3>Low Battery (&lt;20%)</h3>
-                    <div id="count-low-battery" class="metric-value">0</div>
-                </div>
-                <div class="metric-icon">
-                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                </div>
-            </div>
-        </section>
+    <!-- Real-time Table -->
+    <main class="table-card">
+        <div class="table-card-header">
+            <h2>Active Beacons</h2>
+        </div>
+        
+        <div class="table-wrapper">
+            <table>
+                <thead>
+                    <tr>
+                        <th>MAC Address</th>
+                        <th>Device Name</th>
+                        <th>Status</th>
+                        <th>RSSI Strength</th>
+                        <th>Battery</th>
+                        <th>Local Coordinates</th>
+                        <th>Motion</th>
+                        <th>Last Seen</th>
+                    </tr>
+                </thead>
+                <tbody id="devices-tbody">
+                    <!-- Dynamic content populated via SignalR -->
+                </tbody>
+            </table>
+        </div>
+    </main>
+</div>
 
-        <!-- Real-time Table -->
-        <main class="table-card">
-            <div class="table-card-header">
-                <h2>Active Beacons</h2>
-            </div>
-            
-            <div class="table-wrapper">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>MAC Address</th>
-                            <th>Device Name</th>
-                            <th>Status</th>
-                            <th>RSSI Strength</th>
-                            <th>Battery</th>
-                            <th>Local Coordinates</th>
-                            <th>Motion</th>
-                            <th>Last Seen</th>
-                        </tr>
-                    </thead>
-                    <tbody id="devices-tbody">
-                        <!-- Dynamic content populated via SignalR -->
-                    </tbody>
-                </table>
-            </div>
-        </main>
-    </div>
-
+@section Scripts {
     <!-- SignalR Script -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
     
@@ -494,6 +437,7 @@
     <script>
         // Core State
         const devices = {};
+        const devicesHistory = {};
 
         // Setup connection
         const connection = new signalR.HubConnectionBuilder()
@@ -541,10 +485,29 @@
             }
             // Save state
             telemetry.parsedReceiveTime = new Date(telemetry.receiveTime);
-            devices[telemetry.macAddress] = telemetry;
+            
+            // Push to history
+            const mac = telemetry.macAddress;
+            devicesHistory[mac] = devicesHistory[mac] || [];
+            
+            const now = new Date();
+            // Filter out old records (older than 30s)
+            devicesHistory[mac] = devicesHistory[mac].filter(t => (now - t.parsedReceiveTime) <= 30000);
+            
+            // Push new
+            devicesHistory[mac].push(telemetry);
+            
+            // Sort by RSSI descending (strongest RSSI first)
+            devicesHistory[mac].sort((a, b) => b.rssi - a.rssi);
+            
+            // The selected telemetry is the strongest one
+            const selected = devicesHistory[mac][0];
+            selected.status = selected.isMoving ? "Moving" : "Online";
+            
+            devices[mac] = selected;
             
             // Immediately draw/update this single row to keep it responsive
-            updateOrAddRow(telemetry);
+            updateOrAddRow(selected);
             
             // Re-calculate counts
             updateMetrics();
@@ -553,41 +516,81 @@
         // Loop every 1 second to update online/offline states and counts
         setInterval(() => {
             const now = new Date();
-            let stateChanged = false;
             
+            for (const mac in devicesHistory) {
+                // Filter out telemetries older than 30 seconds
+                devicesHistory[mac] = (devicesHistory[mac] || [])
+                    .filter(t => (now - t.parsedReceiveTime) <= 30000);
+
+                if (devicesHistory[mac].length > 0) {
+                    // Sort and select the one with highest RSSI
+                    devicesHistory[mac].sort((a, b) => b.rssi - a.rssi);
+                    const selected = devicesHistory[mac][0];
+                    selected.status = selected.isMoving ? "Moving" : "Online";
+                    devices[mac] = selected;
+                } else {
+                    // No telemetry in last 30 seconds -> Offline
+                    if (devices[mac]) {
+                        devices[mac].status = "Offline";
+                    }
+                }
+            }
+
             for (const mac in devices) {
                 const device = devices[mac];
-                const wasOnline = (now - device.parsedReceiveTime) <= 10000;
-                
-                // We update rows periodically in case they time out.
                 updateOrAddRow(device);
             }
             updateMetrics();
         }, 1000);
 
-        function formatTime(date) {
-            const h = String(date.getHours()).padStart(2, '0');
-            const m = String(date.getMinutes()).padStart(2, '0');
-            const s = String(date.getSeconds()).padStart(2, '0');
-            return `${h}:${m}:${s}`;
+        function getRelativeTimeStr(lastSeenStr) {
+            if (!lastSeenStr) return 'Never';
+            
+            // Append Z to parse correctly as UTC date on client side
+            const dateStr = lastSeenStr.endsWith('Z') ? lastSeenStr : lastSeenStr + 'Z';
+            const lastSeenDate = new Date(dateStr);
+            if (isNaN(lastSeenDate.getTime())) return 'Never';
+            
+            const now = new Date();
+            const diffMs = now - lastSeenDate;
+            const diffSecs = Math.max(0, Math.floor(diffMs / 1000));
+            
+            if (diffSecs < 10) {
+                return 'just now';
+            } else if (diffSecs < 60) {
+                return `${diffSecs} sec ago`;
+            } else if (diffSecs < 3600) {
+                const diffMins = Math.floor(diffSecs / 60);
+                return `${diffMins} min ago`;
+            } else if (diffSecs < 86400) {
+                const diffHrs = Math.floor(diffSecs / 3600);
+                return `${diffHrs} hr ago`;
+            } else if (diffSecs < 604800) {
+                const diffDays = Math.floor(diffSecs / 86400);
+                return `${diffDays} days ago`;
+            } else {
+                // yyyy-MM-dd HH:mm
+                const yyyy = lastSeenDate.getFullYear();
+                const MM = String(lastSeenDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(lastSeenDate.getDate()).padStart(2, '0');
+                const HH = String(lastSeenDate.getHours()).padStart(2, '0');
+                const mm = String(lastSeenDate.getMinutes()).padStart(2, '0');
+                return `${yyyy}-${MM}-${dd} ${HH}:${mm}`;
+            }
         }
 
         function getBatterySVG(level) {
-            // Return crisp inline SVGs for the battery based on level
             let colorClass = "text-success-custom";
             let path = "";
             
             if (level < 20) {
                 colorClass = "text-danger-custom";
-                // Empty battery path
                 path = `<path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5V18a2 2 0 002 2h12a2 2 0 002-2v-7.5m-16 0V6a2 2 0 012-2h12a2 2 0 012 2v4.5m-16 0h16M21 12h1" />`;
             } else if (level < 50) {
                 colorClass = "text-warning-custom";
-                // Half battery path
                 path = `<path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5V18a2 2 0 002 2h12a2 2 0 002-2v-7.5m-16 0V6a2 2 0 012-2h12a2 2 0 012 2v4.5m-16 0h16M7 10v4m4-4v4" />`;
             } else {
                 colorClass = "text-success-custom";
-                // Full battery path
                 path = `<path stroke-linecap="round" stroke-linejoin="round" d="M3 10.5V18a2 2 0 002 2h12a2 2 0 002-2v-7.5m-16 0V6a2 2 0 012-2h12a2 2 0 012 2v4.5m-16 0h16M7 10v4m4-4v4m4-4v4" />`;
             }
             
@@ -599,38 +602,29 @@
             const safeId = "row-" + telemetry.macAddress.replace(/:/g, "-");
             let row = document.getElementById(safeId);
             
-            const now = new Date();
-            const isOnline = (now - telemetry.parsedReceiveTime) <= 10000;
+            const isOnline = telemetry.status && telemetry.status !== "Offline";
             
-            const statusText = isOnline ? "Online" : "Offline";
-            const statusClass = isOnline ? "badge-online" : "badge-offline";
+            const statusText = telemetry.status || "Offline";
+            const statusClass = isOnline ? "badge-online-custom" : "badge-offline-custom";
             
             const batteryClass = telemetry.batteryLevel < 20 ? "text-danger-custom" : (telemetry.batteryLevel < 50 ? "text-warning-custom" : "text-success-custom");
-            const motionBadge = telemetry.isMoving ? `<span class="badge badge-moving">Moving</span>` : `<span class="badge badge-static">Static</span>`;
+            const motionBadge = telemetry.isMoving ? `<span class="badge badge-moving-custom">Moving</span>` : `<span class="badge badge-static-custom">Static</span>`;
             
             let rssiClass = "rssi-weak";
             if (telemetry.rssi > -60) rssiClass = "rssi-strong";
             else if (telemetry.rssi > -80) rssiClass = "rssi-medium";
             
-            const formattedTime = formatTime(telemetry.parsedReceiveTime);
+            const formattedTime = getRelativeTimeStr(telemetry.receiveTime);
 
             const innerHTML = `
                 <td class="mac-address">${telemetry.macAddress}</td>
                 <td class="device-name">${telemetry.deviceName}</td>
                 <td><span class="badge ${statusClass}">${statusText}</span></td>
                 <td>
-                    <div class="rssi-container">
-                        <span class="rssi-value">${telemetry.rssi} dBm</span>
-                        <div class="rssi-bar-wrapper">
-                            <div class="rssi-bar ${rssiClass}" style="width: ${Math.max(0, Math.min(100, (telemetry.rssi + 100) * 1.5))}%"></div>
-                        </div>
-                    </div>
+                    <span class="rssi-value text-white">${telemetry.rssi} dBm</span>
                 </td>
                 <td>
-                    <div class="battery-container">
-                        ${getBatterySVG(telemetry.batteryLevel)}
-                        <span class="battery-value ${batteryClass}">${telemetry.batteryLevel}%</span>
-                    </div>
+                    <span class="battery-value" style="color: #10B981; font-weight: 500;">${telemetry.batteryLevel}%</span>
                 </td>
                 <td class="coords">X: ${telemetry.xAxis.toFixed(2)}, Y: ${telemetry.yAxis.toFixed(2)}, Z: ${telemetry.zAxis.toFixed(2)}</td>
                 <td>${motionBadge}</td>
@@ -638,9 +632,6 @@
             `;
 
             if (row) {
-                // To avoid flashing the row constantly on the 1s interval timer,
-                // we check if anything actually changed or if we got new telemetry.
-                // We flash when there's an active packet update (which calls this with fresh data)
                 const isNewPacket = telemetry._lastFlashTime !== telemetry.receiveTime;
                 
                 row.innerHTML = innerHTML;
@@ -648,7 +639,7 @@
                 if (isNewPacket) {
                     telemetry._lastFlashTime = telemetry.receiveTime;
                     row.classList.remove("row-flash");
-                    void row.offsetWidth; // Force layout recalculation
+                    void row.offsetWidth; // Force layout
                     row.classList.add("row-flash");
                 }
             } else {
@@ -668,20 +659,17 @@
             let moving = 0;
             let lowBattery = 0;
             
-            const now = new Date();
-            
             for (const mac in devices) {
                 const device = devices[mac];
-                const isOnline = (now - device.parsedReceiveTime) <= 10000;
+                const isOnline = device.status && device.status !== "Offline";
                 
                 if (isOnline) {
                     online++;
+                    if (device.status === "Moving") {
+                        moving++;
+                    }
                 } else {
                     offline++;
-                }
-                
-                if (device.isMoving) {
-                    moving++;
                 }
                 
                 if (device.batteryLevel < 20) {
@@ -695,5 +683,4 @@
             document.getElementById("count-low-battery").innerText = lowBattery;
         }
     </script>
-</body>
-</html>
+}

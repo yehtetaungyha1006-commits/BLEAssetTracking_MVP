@@ -64,12 +64,21 @@ namespace AssetTracking.Web.Data
             {
                 entity.HasKey(e => e.AlertId);
                 entity.Property(e => e.AlertTime).HasDefaultValueSql("GETDATE()");
+                entity.Property(e => e.IsResolved).HasDefaultValue(false);
+                entity.Property(e => e.Severity).IsRequired().HasMaxLength(50).HasDefaultValue("Info");
+                entity.Property(e => e.ScannerId).HasMaxLength(450);
 
                 // Relationship with BeaconDevice
                 entity.HasOne(a => a.Device)
                       .WithMany(d => d.Alerts)
                       .HasForeignKey(a => a.DeviceId)
                       .OnDelete(DeleteBehavior.Cascade);
+
+                // Relationship with ScannerDevice
+                entity.HasOne(a => a.Scanner)
+                      .WithMany()
+                      .HasForeignKey(a => a.ScannerId)
+                      .OnDelete(DeleteBehavior.SetNull);
             });
         }
     }

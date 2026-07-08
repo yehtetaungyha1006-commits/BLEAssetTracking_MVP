@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using AssetTracking.Web.Data;
+using AssetTracking.Web.Models;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -12,10 +13,12 @@ namespace AssetTracking.Web.Controllers
     public class DashboardApiController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IConfiguration _configuration;
 
-        public DashboardApiController(AppDbContext context)
+        public DashboardApiController(AppDbContext context, IConfiguration configuration)
         {
             _context = context;
+            _configuration = configuration;
         }
 
         [HttpGet("/api/dashboard")]
@@ -31,8 +34,8 @@ namespace AssetTracking.Web.Controllers
                     .ToListAsync();
 
                 var now = DateTime.Now;
-                var onlineCutoff = now.AddSeconds(-10);
-                var idleCutoff = now.AddSeconds(-30);
+                int offlineTimeout = _configuration.GetValue<int?>("ScannerSettings:OfflineTimeoutSeconds") ?? 30;
+                var cutoff30 = now.AddSeconds(-offlineTimeout);
 
                 int onlineDevices = 0;
                 int offlineDevices = 0;
@@ -41,53 +44,39 @@ namespace AssetTracking.Web.Controllers
 
                 var deviceData = devices.Select(device =>
                 {
-                    // Find telemetries within the active online window (last 10 seconds)
-                    var activeTelemetries = device.Telemetries
-                        .Where(t => t.ReceiveTime >= onlineCutoff)
+                    // Find recent telemetries within the last 30 seconds
+                    var recentTelemetries = device.Telemetries
+                        .Where(t => t.ReceiveTime >= cutoff30)
                         .ToList();
 
-                    // If multiple scanners detected the beacon recently, choose the one with the highest RSSI.
-                    // Otherwise fall back to the most recent telemetry.
-                    var latestTelemetry = activeTelemetries.Any()
-                        ? activeTelemetries.OrderByDescending(t => t.Rssi).FirstOrDefault()
-                        : device.Telemetries.OrderByDescending(t => t.ReceiveTime).FirstOrDefault();
-
-                    // Calculate online/idle/offline status dynamically from LastSeen and DateTime.Now
+                    BeaconTelemetry? selectedTelemetry = null;
                     string status = "Offline";
-                    bool isMoving = latestTelemetry != null && latestTelemetry.IsMoving;
 
-                    if (device.LastSeen.HasValue)
+                    if (recentTelemetries.Any())
                     {
-                        var lastSeenVal = device.LastSeen.Value;
-                        if (lastSeenVal >= onlineCutoff)
-                        {
-                            status = isMoving ? "Moving" : "Online";
-                            onlineDevices++;
-                        }
-                        else if (lastSeenVal >= idleCutoff)
-                        {
-                            status = "Idle";
-                            offlineDevices++;
-                        }
-                        else
-                        {
-                            status = "Offline";
-                            offlineDevices++;
-                        }
+                        // Select the telemetry with the highest RSSI
+                        selectedTelemetry = recentTelemetries.OrderByDescending(t => t.Rssi).First();
+                        status = selectedTelemetry.IsMoving ? "Moving" : "Online";
+                        onlineDevices++;
                     }
                     else
                     {
+                        // Fall back to the absolute latest telemetry for last known location, but status is Offline
+                        selectedTelemetry = device.Telemetries.OrderByDescending(t => t.ReceiveTime).FirstOrDefault();
+                        status = "Offline";
                         offlineDevices++;
                     }
 
-                    // Count moving and low battery devices from their latest telemetry
-                    if (latestTelemetry != null)
+                    bool isMoving = selectedTelemetry != null && selectedTelemetry.IsMoving;
+
+                    // Count moving and low battery devices from their selected telemetry
+                    if (selectedTelemetry != null)
                     {
-                        if (isMoving && device.LastSeen.HasValue && device.LastSeen.Value >= onlineCutoff)
+                        if (isMoving && status != "Offline")
                         {
                             movingDevices++;
                         }
-                        if (latestTelemetry.BatteryLevel < 20)
+                        if (selectedTelemetry.BatteryLevel < 20)
                         {
                             lowBatteryDevices++;
                         }
@@ -97,19 +86,19 @@ namespace AssetTracking.Web.Controllers
                     {
                         macAddress = device.MacAddress,
                         deviceName = device.DeviceName,
-                        rssi = latestTelemetry?.Rssi ?? 0,
-                        batteryLevel = latestTelemetry?.BatteryLevel ?? 0,
-                        xAxis = latestTelemetry?.XAxis ?? 0.0,
-                        yAxis = latestTelemetry?.YAxis ?? 0.0,
-                        zAxis = latestTelemetry?.ZAxis ?? 0.0,
+                        rssi = selectedTelemetry?.Rssi ?? 0,
+                        batteryLevel = selectedTelemetry?.BatteryLevel ?? 0,
+                        xAxis = selectedTelemetry?.XAxis ?? 0.0,
+                        yAxis = selectedTelemetry?.YAxis ?? 0.0,
+                        zAxis = selectedTelemetry?.ZAxis ?? 0.0,
                         isMoving = isMoving,
                         status = status,
                         lastSeen = device.LastSeen,
-                        scannerId = latestTelemetry?.Scanner?.ScannerId,
-                        scannerName = latestTelemetry?.Scanner?.ScannerName,
-                        building = latestTelemetry?.Scanner?.Building,
-                        floor = latestTelemetry?.Scanner?.Floor,
-                        location = latestTelemetry?.Scanner?.Location
+                        scannerId = selectedTelemetry?.Scanner?.ScannerId,
+                        scannerName = selectedTelemetry?.Scanner?.ScannerName,
+                        building = selectedTelemetry?.Scanner?.Building,
+                        floor = selectedTelemetry?.Scanner?.Floor,
+                        location = selectedTelemetry?.Scanner?.Location
                     };
                 }).ToList();
 

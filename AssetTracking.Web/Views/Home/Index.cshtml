@@ -1,382 +1,309 @@
 @{
-    Layout = null;
+    Layout = "_Layout";
 }
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>BLE Asset Tracking Dashboard</title>
-    
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet" />
-    
-    <!-- Fonts -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-    
-    <!-- Custom Dark CSS -->
-    <style>
-        :root {
-            --bg-color: #0b111e;
-            --card-bg: #151f32;
-            --border-color: rgba(255, 255, 255, 0.08);
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --primary: #6366f1;
-            
-            --online-color: #10b981;
-            --offline-color: #ef4444;
-            --moving-color: #3b82f6;
-            --low-bat-color: #ef4444;
-            --warning-color: #f59e0b;
-        }
 
-        body {
-            background-color: var(--bg-color);
-            background-image: 
-                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.12) 0px, transparent 50%),
-                radial-gradient(at 100% 100%, rgba(239, 68, 68, 0.08) 0px, transparent 50%);
-            background-attachment: fixed;
-            color: var(--text-main);
-            font-family: 'Outfit', sans-serif;
-            min-height: 100vh;
-            padding: 1.5rem 0;
-        }
+<!-- Custom Dark CSS for Dashboard Widgets -->
+<style>
+    /* Metric Cards */
+    .metric-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 1rem;
+        padding: 1.25rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
+        transition: transform 0.2s ease, border-color 0.2s ease;
+    }
 
-        .dashboard-header {
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 1.25rem;
-            margin-bottom: 2rem;
-        }
+    .metric-card:hover {
+        transform: translateY(-2px);
+        border-color: rgba(255, 255, 255, 0.15);
+    }
 
-        .dashboard-header h1 {
-            font-size: 2rem;
-            font-weight: 700;
-            letter-spacing: -0.025em;
-            background: linear-gradient(to right, #ffffff, #cbd5e1);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-        }
+    .metric-label {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        font-weight: 600;
+    }
 
-        .dashboard-header p {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            margin: 0;
-        }
+    .metric-val {
+        font-size: 2rem;
+        font-weight: 700;
+        margin-top: 0.25rem;
+    }
 
-        /* Metric Cards */
-        .metric-card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 1rem;
-            padding: 1.25rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            box-shadow: 0 4px 20px 0 rgba(0, 0, 0, 0.15);
-            transition: transform 0.2s ease, border-color 0.2s ease;
-        }
+    .metric-icon {
+        width: 44px;
+        height: 44px;
+        border-radius: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
 
-        .metric-card:hover {
-            transform: translateY(-2px);
-            border-color: rgba(255, 255, 255, 0.15);
-        }
+    /* Metric Color Themes */
+    .m-online .metric-icon { background: rgba(16, 185, 129, 0.1); color: #10b981; }
+    .m-online .metric-val { color: #10b981; }
 
-        .metric-label {
-            font-size: 0.85rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            color: var(--text-muted);
-            font-weight: 600;
-        }
+    .m-offline .metric-icon { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    .m-offline .metric-val { color: #ef4444; }
 
-        .metric-val {
-            font-size: 2rem;
-            font-weight: 700;
-            margin-top: 0.25rem;
-        }
+    .m-moving .metric-icon { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }
+    .m-moving .metric-val { color: #3b82f6; }
 
-        .metric-icon {
-            width: 44px;
-            height: 44px;
-            border-radius: 0.75rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-        }
+    .m-low-battery .metric-icon { background: rgba(239, 68, 68, 0.1); color: #ef4444; }
+    .m-low-battery .metric-val { color: #ef4444; }
 
-        /* Metric Color Themes */
-        .m-online .metric-icon { background: rgba(16, 185, 129, 0.1); color: var(--online-color); }
-        .m-online .metric-val { color: var(--online-color); }
+    /* Dashboard panels */
+    .panel-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 1.25rem;
+        padding: 1.5rem;
+        box-shadow: 0 8px 30px 0 rgba(0, 0, 0, 0.2);
+        height: 100%;
+    }
 
-        .m-offline .metric-icon { background: rgba(239, 68, 68, 0.1); color: var(--offline-color); }
-        .m-offline .metric-val { color: var(--offline-color); }
+    .panel-title {
+        font-size: 1.15rem;
+        font-weight: 600;
+        margin-bottom: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+    }
 
-        .m-moving .metric-icon { background: rgba(59, 130, 246, 0.1); color: var(--moving-color); }
-        .m-moving .metric-val { color: var(--moving-color); }
+    /* Table custom styling */
+    .table-responsive {
+        overflow-x: auto;
+    }
 
-        .m-low-battery .metric-icon { background: rgba(239, 68, 68, 0.1); color: var(--low-bat-color); }
-        .m-low-battery .metric-val { color: var(--low-bat-color); }
+    .table-custom {
+        margin-bottom: 0;
+        width: 100%;
+    }
 
-        /* Dashboard panels */
-        .panel-card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 1.25rem;
-            padding: 1.5rem;
-            box-shadow: 0 8px 30px 0 rgba(0, 0, 0, 0.2);
-            height: 100%;
-        }
+    .table-custom th {
+        color: var(--text-muted);
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 600;
+        padding: 1rem 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
 
-        .panel-title {
-            font-size: 1.15rem;
-            font-weight: 600;
-            margin-bottom: 1.25rem;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
+    .table-custom td {
+        color: #cbd5e1;
+        padding: 1rem 0.75rem;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+        vertical-align: middle;
+    }
 
-        /* Table custom styling */
-        .table-responsive {
-            overflow-x: auto;
-        }
+    .table-custom tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.01);
+    }
 
-        .table-custom {
-            margin-bottom: 0;
-            width: 100%;
-        }
+    .mac-addr {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        color: #94a3b8;
+    }
 
-        .table-custom th {
-            color: var(--text-muted);
-            font-size: 0.75rem;
-            text-transform: uppercase;
-            letter-spacing: 0.05em;
-            font-weight: 600;
-            padding: 1rem 0.75rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-        }
+    .dev-name {
+        font-weight: 600;
+        color: #ffffff;
+    }
 
-        .table-custom td {
-            color: #cbd5e1;
-            padding: 1rem 0.75rem;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            vertical-align: middle;
-        }
+    /* Badges */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 0.25rem 0.65rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 9999px;
+        text-transform: uppercase;
+    }
 
-        .table-custom tbody tr:hover {
-            background-color: rgba(255, 255, 255, 0.01);
-        }
+    .badge-on { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
+    .badge-off { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
+    .badge-mov { background: rgba(59, 130, 246, 0.12); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); }
+    .badge-idle { background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
 
-        .mac-addr {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-            color: #94a3b8;
-        }
+    .rssi-value {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+    }
 
-        .dev-name {
-            font-weight: 600;
-            color: #ffffff;
-        }
+    /* Alerts List */
+    .alerts-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+    }
 
-        /* Badges */
-        .status-badge {
-            display: inline-flex;
-            align-items: center;
-            padding: 0.25rem 0.65rem;
-            font-size: 0.75rem;
-            font-weight: 600;
-            border-radius: 9999px;
-            text-transform: uppercase;
-        }
+    .alert-item {
+        background: rgba(255, 255, 255, 0.02);
+        border-left: 3px solid transparent;
+        border-radius: 0.5rem;
+        padding: 0.75rem 1rem;
+        font-size: 0.85rem;
+        transition: background 0.2s ease;
+    }
 
-        .badge-on { background: rgba(16, 185, 129, 0.12); color: #34d399; border: 1px solid rgba(16, 185, 129, 0.2); }
-        .badge-off { background: rgba(239, 68, 68, 0.12); color: #f87171; border: 1px solid rgba(239, 68, 68, 0.2); }
-        .badge-mov { background: rgba(59, 130, 246, 0.12); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.2); }
-        .badge-idle { background: rgba(245, 158, 11, 0.12); color: #fbbf24; border: 1px solid rgba(245, 158, 11, 0.2); }
+    .alert-item:hover {
+        background: rgba(255, 255, 255, 0.04);
+    }
 
-        .rssi-value {
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 0.85rem;
-        }
+    .alert-danger-custom { border-left-color: #ef4444; }
+    .alert-warning-custom { border-left-color: #f59e0b; }
+    .alert-info-custom { border-left-color: #3b82f6; }
+    .alert-success-custom { border-left-color: #10b981; }
 
-        /* Alerts List */
-        .alerts-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.75rem;
-        }
+    .alert-time {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        margin-top: 0.25rem;
+        display: block;
+    }
 
-        .alert-item {
-            background: rgba(255, 255, 255, 0.02);
-            border-left: 3px solid transparent;
-            border-radius: 0.5rem;
-            padding: 0.75rem 1rem;
-            font-size: 0.85rem;
-            transition: background 0.2s ease;
-        }
+    .chart-container {
+        position: relative;
+        height: 220px;
+        width: 100%;
+    }
+</style>
 
-        .alert-item:hover {
-            background: rgba(255, 255, 255, 0.04);
-        }
+<div class="px-2">
+    <!-- Header -->
+    <header class="d-flex justify-content-between align-items-center mb-4 pb-3" style="border-bottom: 1px solid var(--border-color);">
+        <div>
+            <h1 class="h2 fw-bold text-white mb-1">ระบบติดตามสถานะอุปกรณ์ครุภัณฑ์ โรงพยาบาลศิริราช</h1>
+            <p class="text-muted mb-0">Siriraj Hospital Asset Tracking System</p>
+        </div>
+        <div>
+            <span class="badge bg-success px-3 py-2 rounded-pill font-weight-500">Live API Auto-Refresh</span>
+        </div>
+    </header>
 
-        .alert-danger-custom { border-left-color: var(--low-bat-color); }
-        .alert-warning-custom { border-left-color: var(--warning-color); }
-        .alert-info-custom { border-left-color: var(--moving-color); }
-        .alert-success-custom { border-left-color: var(--online-color); }
-
-        .alert-time {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            margin-top: 0.25rem;
-            display: block;
-        }
-
-        .chart-container {
-            position: relative;
-            height: 220px;
-            width: 100%;
-        }
-    </style>
-</head>
-<body>
-    <div class="container-fluid px-4">
-        <!-- Header -->
-        <header class="dashboard-header d-flex justify-content-between align-items-center">
-            <div>
-                <h1>BLE Asset Tracking Dashboard</h1>
-                <p>System monitoring and beacon telemetry (Auto-Refresh Mode)</p>
-            </div>
-            <div>
-                <span class="badge bg-success px-3 py-2 rounded-pill font-weight-500">Live API Auto-Refresh</span>
-            </div>
-        </header>
-
-        <!-- Summary Grid -->
-        <div class="row g-4 mb-4">
-            <div class="col-sm-6 col-xl-3">
-                <div class="metric-card m-online">
-                    <div>
-                        <div class="metric-label">Online Devices</div>
-                        <div id="count-online" class="metric-val">-</div>
-                    </div>
-                    <div class="metric-icon">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
+    <!-- Summary Grid -->
+    <div class="row g-4 mb-4">
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card m-online">
+                <div>
+                    <div class="metric-label">Online Devices</div>
+                    <div id="count-online" class="metric-val">-</div>
                 </div>
-            </div>
-            <div class="col-sm-6 col-xl-3">
-                <div class="metric-card m-offline">
-                    <div>
-                        <div class="metric-label">Offline Devices</div>
-                        <div id="count-offline" class="metric-val">-</div>
-                    </div>
-                    <div class="metric-icon">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-6 col-xl-3">
-                <div class="metric-card m-moving">
-                    <div>
-                        <div class="metric-label">Moving Devices</div>
-                        <div id="count-moving" class="metric-val">-</div>
-                    </div>
-                    <div class="metric-icon">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-                        </svg>
-                    </div>
-                </div>
-            </div>
-            <div class="col-sm-6 col-xl-3">
-                <div class="metric-card m-low-battery">
-                    <div>
-                        <div class="metric-label">Low Battery Devices</div>
-                        <div id="count-low-battery" class="metric-val">-</div>
-                    </div>
-                    <div class="metric-icon">
-                        <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
+                <div class="metric-icon">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                 </div>
             </div>
         </div>
-
-        <!-- Main Dashboard Content -->
-        <div class="row g-4">
-            <!-- Left Panel: Table and Charts -->
-            <div class="col-lg-8 d-flex flex-column gap-4">
-                
-                <!-- Table Panel -->
-                <div class="panel-card">
-                    <div class="panel-title">Tracked Devices</div>
-                    
-                    <div class="table-responsive">
-                        <table class="table-custom">
-                            <thead>
-                                <tr>
-                                    <th>MAC Address</th>
-                                    <th>Device Name</th>
-                                    <th>Scanner</th>
-                                    <th>Building</th>
-                                    <th>Floor</th>
-                                    <th>Current Location</th>
-                                    <th>RSSI</th>
-                                    <th>Battery</th>
-                                    <th>Status</th>
-                                    <th>Last Seen</th>
-                                </tr>
-                            </thead>
-                            <tbody id="devices-tbody">
-                                <!-- Loaded dynamically from api -->
-                            </tbody>
-                        </table>
-                    </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card m-offline">
+                <div>
+                    <div class="metric-label">Offline Devices</div>
+                    <div id="count-offline" class="metric-val">-</div>
                 </div>
-
-                <!-- Charts Placeholders Panel -->
-                <div class="row g-4">
-                    <div class="col-md-6">
-                        <div class="panel-card">
-                            <div class="panel-title">RSSI Signal (Live Tracking)</div>
-                            <div class="chart-container">
-                                <canvas id="rssiChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                    <div class="col-md-6">
-                        <div class="panel-card">
-                            <div class="panel-title">Battery Level (Live Tracking)</div>
-                            <div class="chart-container">
-                                <canvas id="batteryChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
+                <div class="metric-icon">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
                 </div>
-
             </div>
-
-            <!-- Right Panel: Latest Alerts -->
-            <div class="col-lg-4">
-                <div class="panel-card d-flex flex-column">
-                    <div class="panel-title">Latest Alerts</div>
-                    
-                    <div class="alerts-list overflow-auto flex-grow-1" id="alerts-container">
-                        <!-- Loaded dynamically -->
-                    </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card m-moving">
+                <div>
+                    <div class="metric-label">Moving Devices</div>
+                    <div id="count-moving" class="metric-val">-</div>
+                </div>
+                <div class="metric-icon">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </div>
+            </div>
+        </div>
+        <div class="col-sm-6 col-xl-3">
+            <div class="metric-card m-low-battery">
+                <div>
+                    <div class="metric-label">Low Battery Devices</div>
+                    <div id="count-low-battery" class="metric-val">-</div>
+                </div>
+                <div class="metric-icon">
+                    <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
                 </div>
             </div>
         </div>
     </div>
 
+    <!-- Main Dashboard Content -->
+    <div class="row g-4">
+        <!-- Left Panel: Table and Charts -->
+        <div class="col-12 d-flex flex-column gap-4">
+            
+            <!-- Table Panel -->
+            <div class="panel-card">
+                <div class="panel-title">Tracked Devices</div>
+                
+                <div class="table-responsive">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>MAC Address</th>
+                                <th>Device Name</th>
+                                <th>Scanner</th>
+                                <th>Building</th>
+                                <th>Floor</th>
+                                <th>Current Location</th>
+                                <th>RSSI</th>
+                                <th>Battery</th>
+                                <th>Status</th>
+                                <th>Last Seen</th>
+                            </tr>
+                        </thead>
+                        <tbody id="devices-tbody">
+                            <!-- Loaded dynamically from api -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Charts Placeholders Panel -->
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="panel-card">
+                        <div class="panel-title">RSSI Signal (Live Tracking)</div>
+                        <div class="chart-container">
+                            <canvas id="rssiChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="panel-card">
+                        <div class="panel-title">Battery Level (Live Tracking)</div>
+                        <div class="chart-container">
+                            <canvas id="batteryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+@section Scripts {
     <!-- Chart.js Script via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -394,23 +321,38 @@
 
         // Helper: Calculate relative time string
         function getRelativeTimeStr(lastSeenStr) {
-            if (!lastSeenStr) return '-';
+            if (!lastSeenStr) return 'Never';
             
             // Append Z to parse correctly as UTC date on client side
             const dateStr = lastSeenStr.endsWith('Z') ? lastSeenStr : lastSeenStr + 'Z';
             const lastSeenDate = new Date(dateStr);
-            const now = new Date();
+            if (isNaN(lastSeenDate.getTime())) return 'Never';
             
+            const now = new Date();
             const diffMs = now - lastSeenDate;
             const diffSecs = Math.max(0, Math.floor(diffMs / 1000));
             
-            if (diffSecs < 5) {
+            if (diffSecs < 10) {
                 return 'just now';
             } else if (diffSecs < 60) {
                 return `${diffSecs} sec ago`;
-            } else {
+            } else if (diffSecs < 3600) {
                 const diffMins = Math.floor(diffSecs / 60);
                 return `${diffMins} min ago`;
+            } else if (diffSecs < 86400) {
+                const diffHrs = Math.floor(diffSecs / 3600);
+                return `${diffHrs} hr ago`;
+            } else if (diffSecs < 604800) {
+                const diffDays = Math.floor(diffSecs / 86400);
+                return `${diffDays} days ago`;
+            } else {
+                // yyyy-MM-dd HH:mm
+                const yyyy = lastSeenDate.getFullYear();
+                const MM = String(lastSeenDate.getMonth() + 1).padStart(2, '0');
+                const dd = String(lastSeenDate.getDate()).padStart(2, '0');
+                const HH = String(lastSeenDate.getHours()).padStart(2, '0');
+                const mm = String(lastSeenDate.getMinutes()).padStart(2, '0');
+                return `${yyyy}-${MM}-${dd} ${HH}:${mm}`;
             }
         }
 
@@ -474,14 +416,9 @@
                         <td>${buildingText}</td>
                         <td>${floorText}</td>
                         <td>${locationText}</td>
-                        <td class="rssi-value">${device.rssi ? `${device.rssi} dBm` : '-'}</td>
+                        <td class="rssi-value text-white">${device.rssi ? `${device.rssi} dBm` : '-'}</td>
                         <td>
-                            <div class="d-flex align-items-center gap-2">
-                                <div class="progress bg-dark" style="height: 6px; width: 60px !important;">
-                                    <div class="progress-bar ${batteryColor}" style="width: ${device.batteryLevel}%"></div>
-                                </div>
-                                <span class="${device.batteryLevel < 20 ? 'text-danger' : ''}">${device.batteryLevel}%</span>
-                            </div>
+                            <span style="color: #10B981; font-weight: 500;">${device.batteryLevel}%</span>
                         </td>
                         <td><span class="status-badge ${badgeClass}">${device.status}</span></td>
                         <td>${formattedTime}</td>
@@ -489,74 +426,12 @@
                     tbody.appendChild(row);
                 });
 
-                // Update alerts list dynamically from data
-                updateAlerts(data.devices);
-
                 // Update Chart.js components
                 updateCharts(data.devices);
 
             } catch (err) {
                 console.error('Error loading dashboard data:', err);
             }
-        }
-
-        // Generate alerts dynamically based on actual device telemetry states
-        function updateAlerts(devices) {
-            const container = document.getElementById('alerts-container');
-            container.innerHTML = '';
-
-            let alerts = [];
-
-            devices.forEach(device => {
-                if (device.status === 'Offline') {
-                    alerts.push({
-                        type: 'danger',
-                        text: `Connection lost with <strong>${device.deviceName || device.macAddress}</strong>.`,
-                        time: 'Offline (>30s)'
-                    });
-                } else if (device.status === 'Idle') {
-                    alerts.push({
-                        type: 'warning',
-                        text: `Device <strong>${device.deviceName || device.macAddress}</strong> has gone Idle.`,
-                        time: 'Idle (10-30s)'
-                    });
-                }
-                
-                if (device.batteryLevel < 20) {
-                    alerts.push({
-                        type: 'warning',
-                        text: `Critical Battery alert on <strong>${device.deviceName || device.macAddress}</strong> (current: ${device.batteryLevel}%).`,
-                        time: 'Low battery warning'
-                    });
-                }
-                
-                if (device.status === 'Moving') {
-                    alerts.push({
-                        type: 'info',
-                        text: `Active coordinates walk detected for <strong>${device.deviceName}</strong>.`,
-                        time: 'Active movement'
-                    });
-                }
-            });
-
-            // Base fallback alert if no alerts exist
-            if (alerts.length === 0) {
-                alerts.push({
-                    type: 'success',
-                    text: 'All tracked beacons are functioning normally.',
-                    time: 'Just now'
-                });
-            }
-
-            alerts.forEach(alert => {
-                const item = document.createElement('div');
-                item.className = `alert-item alert-${alert.type === 'danger' ? 'danger-custom' : (alert.type === 'warning' ? 'warning-custom' : (alert.type === 'success' ? 'success-custom' : 'info-custom'))}`;
-                item.innerHTML = `
-                    ${alert.text}
-                    <span class="alert-time">${alert.time}</span>
-                `;
-                container.appendChild(item);
-            });
         }
 
         // Initialize and update Chart.js
@@ -579,7 +454,11 @@
                 if (rssiHistory[key].length >= 7) {
                     rssiHistory[key].shift();
                 }
-                rssiHistory[key].push(device.rssi);
+                if (device.status === 'Offline') {
+                    rssiHistory[key].push(null);
+                } else {
+                    rssiHistory[key].push(device.rssi);
+                }
             });
 
             // 1. Render/Update RSSI Chart
@@ -689,5 +568,4 @@
             setInterval(fetchDashboard, 5000);
         });
     </script>
-</body>
-</html>
+}

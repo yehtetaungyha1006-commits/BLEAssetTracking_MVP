@@ -1,0 +1,286 @@
+@model IEnumerable<AlertLog>
+@{
+    ViewData["Title"] = "System Alerts Log";
+    var search = ViewBag.Search as string;
+    var currentAlertType = ViewBag.AlertType as string;
+    var currentSeverity = ViewBag.Severity as string;
+    var currentStatus = ViewBag.Status as string;
+    var alertTypes = ViewBag.AlertTypes as List<string> ?? new List<string>();
+    int currentPage = ViewBag.CurrentPage;
+    int totalPages = ViewBag.TotalPages;
+    int totalItems = ViewBag.TotalItems;
+}
+
+<style>
+    .alerts-header h2 {
+        font-weight: 700;
+        font-size: 1.75rem;
+        background: linear-gradient(to right, #ffffff, #cbd5e1) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+    }
+
+    .filter-card {
+        background-color: var(--card-bg) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .pagination-custom .page-link {
+        background-color: rgba(255, 255, 255, 0.03) !important;
+        border-color: var(--border-color) !important;
+        color: #cbd5e1 !important;
+        transition: all 0.2s ease;
+    }
+
+    .pagination-custom .page-link:hover {
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.25) !important;
+    }
+
+    .pagination-custom .page-item.active .page-link {
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
+        border-color: transparent !important;
+        color: #ffffff !important;
+    }
+
+    .pagination-custom .page-item.disabled .page-link {
+        background-color: rgba(0, 0, 0, 0.2) !important;
+        border-color: rgba(255, 255, 255, 0.04) !important;
+        color: #64748b !important;
+    }
+
+    /* Severity badges (text only) */
+    .badge-severity {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.35rem 0.75rem;
+        border-radius: 0.375rem;
+        display: inline-block;
+    }
+
+    .badge-severity-critical {
+        background-color: rgba(239, 68, 68, 0.12) !important;
+        color: #f87171 !important;
+        border: 1px solid rgba(239, 68, 68, 0.2) !important;
+    }
+
+    .badge-severity-warning {
+        background-color: rgba(245, 158, 11, 0.12) !important;
+        color: #fbbf24 !important;
+        border: 1px solid rgba(245, 158, 11, 0.2) !important;
+    }
+
+    .badge-severity-info {
+        background-color: rgba(59, 130, 246, 0.12) !important;
+        color: #60a5fa !important;
+        border: 1px solid rgba(59, 130, 246, 0.2) !important;
+    }
+
+    /* Status badges (text only) */
+    .badge-status {
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        padding: 0.35rem 0.75rem;
+        border-radius: 0.375rem;
+        display: inline-block;
+    }
+
+    .badge-status-active {
+        background-color: rgba(244, 63, 94, 0.12) !important;
+        color: #fb7185 !important;
+        border: 1px solid rgba(244, 63, 94, 0.2) !important;
+    }
+
+    .badge-status-resolved {
+        background-color: rgba(16, 185, 129, 0.12) !important;
+        color: #34d399 !important;
+        border: 1px solid rgba(16, 185, 129, 0.2) !important;
+    }
+
+    .mac-address {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        color: #94a3b8;
+    }
+
+    .device-name {
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .alert-time {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        color: #cbd5e1;
+    }
+
+    .alert-msg {
+        color: #f8fafc;
+    }
+</style>
+
+<div class="container-fluid">
+    <div class="alerts-header mb-4">
+        <h2>System Alerts Log</h2>
+        <p class="text-muted mb-0">Review anomalies, warnings, and recovery event logs across the system.</p>
+    </div>
+
+    <!-- Filters Panel -->
+    <div class="filter-card">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-md-3">
+                <label class="label-custom form-label mb-2" for="search">Search Keywords</label>
+                <input type="text" id="search" name="search" class="form-control input-custom" value="@search" placeholder="Device Name, MAC, Scanner" />
+            </div>
+            
+            <div class="col-md-3">
+                <label class="label-custom form-label mb-2" for="alertType">Alert Type</label>
+                <select id="alertType" name="alertType" class="form-select input-custom">
+                    <option value="">All Types</option>
+                    @foreach (var type in alertTypes)
+                    {
+                        if (type == currentAlertType)
+                        {
+                            <option value="@type" selected>@type</option>
+                        }
+                        else
+                        {
+                            <option value="@type">@type</option>
+                        }
+                    }
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="label-custom form-label mb-2" for="severity">Severity</label>
+                <select id="severity" name="severity" class="form-select input-custom">
+                    <option value="">All Severities</option>
+                    <!---->
+                    @if (currentSeverity == "Info") { <option value="Info" selected>Info</option> } else { <option value="Info">Info</option> }
+                    @if (currentSeverity == "Warning") { <option value="Warning" selected>Warning</option> } else { <option value="Warning">Warning</option> }
+                    @if (currentSeverity == "Critical") { <option value="Critical" selected>Critical</option> } else { <option value="Critical">Critical</option> }
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="label-custom form-label mb-2" for="status">Status</label>
+                <select id="status" name="status" class="form-select input-custom">
+                    <option value="">All Statuses</option>
+                    <!---->
+                    @if (currentStatus == "Active") { <option value="Active" selected>Active</option> } else { <option value="Active">Active</option> }
+                    @if (currentStatus == "Resolved") { <option value="Resolved" selected>Resolved</option> } else { <option value="Resolved">Resolved</option> }
+                </select>
+            </div>
+
+            <div class="col-md-2 d-flex gap-2">
+                <button type="submit" class="btn btn-primary flex-grow-1 py-2">
+                    Apply Filter
+                </button>
+                <a asp-action="Index" class="btn btn-outline-light py-2 px-3" title="Clear filters">
+                    Reset
+                </a>
+            </div>
+        </form>
+    </div>
+
+    <!-- Table Card -->
+    <div class="card card-custom mb-4">
+        <div class="table-responsive">
+            <table class="table table-custom mb-0">
+                <thead>
+                    <tr>
+                        <th>Created Time</th>
+                        <th>Severity</th>
+                        <th>Alert Type</th>
+                        <th>Device Name</th>
+                        <th>MAC Address</th>
+                        <th>Scanner</th>
+                        <th>Message</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="8" class="text-center py-5 text-muted">
+                                No matching alerts found.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var alert in Model)
+                        {
+                            string severityClass = alert.Severity switch
+                            {
+                                "Critical" => "badge-severity-critical",
+                                "Warning" => "badge-severity-warning",
+                                "Info" or _ => "badge-severity-info"
+                            };
+
+                            string statusClass = alert.IsResolved ? "badge-status-resolved" : "badge-status-active";
+                            string statusText = alert.IsResolved ? "Resolved" : "Active";
+                            string scannerText = alert.Scanner?.ScannerName ?? alert.ScannerId ?? "-";
+
+                            <tr>
+                                <td class="alert-time">@alert.AlertTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                <td>
+                                    <span class="badge-severity @severityClass">@alert.Severity</span>
+                                </td>
+                                <td>
+                                    <span class="text-white fw-semibold">@alert.AlertType</span>
+                                </td>
+                                <td class="device-name">@(alert.Device?.DeviceName ?? "-")</td>
+                                <td class="mac-address">@(alert.Device?.MacAddress ?? "-")</td>
+                                <td class="text-white">@scannerText</td>
+                                <td class="alert-msg">@alert.AlertMessage</td>
+                                <td>
+                                    <span class="badge-status @statusClass">@statusText</span>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Pagination -->
+    @if (totalPages > 1)
+    {
+        <nav aria-label="Alert logs pagination">
+            <ul class="pagination pagination-custom justify-content-center">
+                <!-- Previous Button -->
+                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                    <a class="page-link" href="?search=@search&alertType=@currentAlertType&severity=@currentSeverity&status=@currentStatus&page=@(currentPage - 1)" aria-label="Previous">
+                        &laquo; Prev
+                    </a>
+                </li>
+
+                <!-- Page numbers -->
+                @for (int i = 1; i <= totalPages; i++)
+                {
+                    <li class="page-item @(currentPage == i ? "active" : "")">
+                        <a class="page-link" href="?search=@search&alertType=@currentAlertType&severity=@currentSeverity&status=@currentStatus&page=@i">@i</a>
+                    </li>
+                }
+
+                <!-- Next Button -->
+                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                    <a class="page-link" href="?search=@search&alertType=@currentAlertType&severity=@currentSeverity&status=@currentStatus&page=@(currentPage + 1)" aria-label="Next">
+                        Next &raquo;
+                    </a>
+                </li>
+            </ul>
+        </nav>
+    }
+</div>

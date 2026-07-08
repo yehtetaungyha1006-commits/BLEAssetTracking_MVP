@@ -1,0 +1,274 @@
+@model IEnumerable<ScannerDevice>
+@{
+    ViewData["Title"] = "Scanner Management";
+}
+
+@functions {
+    string GetHealth(DateTime? lastSeen)
+    {
+        if (lastSeen == null) return "Offline";
+        var diff = DateTime.Now - lastSeen.Value;
+        if (diff.TotalSeconds <= 30) return "Healthy";
+        if (diff.TotalSeconds <= 120) return "Warning";
+        return "Offline";
+    }
+
+    string GetHealthBadgeClass(string health)
+    {
+        return health switch
+        {
+            "Healthy" => "bg-success",
+            "Warning" => "bg-warning text-dark",
+            "Offline" => "bg-danger",
+            _ => "bg-secondary"
+        };
+    }
+
+    string FormatLastSeen(DateTime? lastSeen)
+    {
+        if (lastSeen == null) return "Never";
+        var diff = DateTime.Now - lastSeen.Value;
+        var totalSecs = diff.TotalSeconds;
+        if (totalSecs < 0) totalSecs = 0; // handle timezone/clock skew slightly
+
+        if (totalSecs < 10) return "just now";
+        if (totalSecs < 60) return $"{(int)totalSecs} sec ago";
+        if (totalSecs < 3600) return $"{(int)(totalSecs / 60)} min ago";
+        if (totalSecs < 86400) return $"{(int)(totalSecs / 3600)} hr ago";
+        if (totalSecs < 604800) return $"{(int)(totalSecs / 86400)} days ago";
+        return lastSeen.Value.ToString("yyyy-MM-dd HH:mm");
+    }
+
+    bool IsLegacyScanner(ScannerDevice scanner)
+    {
+        // Check if ID starts with "Scanner-"
+        if (!scanner.ScannerId.StartsWith("Scanner-", StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        // Check if LastSeen is null or older than 1 day
+        if (scanner.LastSeen.HasValue)
+        {
+            var diff = DateTime.Now - scanner.LastSeen.Value;
+            if (diff.TotalDays < 1.0)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+}
+
+<style>
+    .scanners-header h2 {
+        font-weight: 700;
+        font-size: 1.75rem;
+        background: linear-gradient(to right, #ffffff, #cbd5e1) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+    }
+
+    .card-custom {
+        background-color: var(--card-bg) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 1rem;
+        overflow: hidden;
+    }
+
+    .table-custom th {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--text-muted);
+        background-color: rgba(0, 0, 0, 0.2) !important;
+        border-bottom: 1px solid var(--border-color) !important;
+        padding: 1rem 1.25rem;
+    }
+
+    .table-custom td {
+        padding: 1.1rem 1.25rem;
+        vertical-align: middle;
+        border-bottom: 1px solid var(--border-color) !important;
+        color: var(--text-main);
+    }
+
+    .table-custom tbody tr:hover {
+        background-color: rgba(255, 255, 255, 0.02) !important;
+    }
+
+    .scanner-id {
+        font-family: 'JetBrains Mono', monospace;
+        font-size: 0.85rem;
+        color: #cbd5e1;
+        font-weight: 500;
+    }
+
+    .scanner-name {
+        font-weight: 600;
+        color: #ffffff;
+    }
+
+    .badge-status {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.75rem;
+        font-weight: 600;
+        border-radius: 9999px;
+        text-transform: uppercase;
+        letter-spacing: 0.025em;
+    }
+
+    .badge-online {
+        background-color: rgba(16, 185, 129, 0.12) !important;
+        color: #34d399 !important;
+        border: 1px solid rgba(16, 185, 129, 0.2) !important;
+    }
+
+    .badge-offline {
+        background-color: rgba(148, 163, 184, 0.12) !important;
+        color: #94a3b8 !important;
+        border: 1px solid rgba(148, 163, 184, 0.2) !important;
+    }
+
+    .status-dot {
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .bg-online {
+        background-color: #10b981;
+    }
+
+    .bg-offline {
+        background-color: #94a3b8;
+    }
+
+    .btn-edit-custom {
+        background-color: rgba(99, 102, 241, 0.15) !important;
+        color: #818cf8 !important;
+        font-weight: 600;
+        border: 1px solid rgba(99, 102, 241, 0.2) !important;
+        border-radius: 0.5rem;
+        padding: 0.4rem 0.9rem;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+    }
+
+    .btn-edit-custom:hover {
+        background-color: #4f46e5 !important;
+        color: #ffffff !important;
+        transform: translateY(-1px);
+    }
+
+    .btn-delete-custom {
+        background-color: rgba(244, 63, 94, 0.15) !important;
+        color: #fb7185 !important;
+        font-weight: 600;
+        border: 1px solid rgba(244, 63, 94, 0.2) !important;
+        border-radius: 0.5rem;
+        padding: 0.4rem 0.9rem;
+        font-size: 0.85rem;
+        transition: all 0.2s ease;
+    }
+
+    .btn-delete-custom:hover {
+        background-color: #e11d48 !important;
+        color: #ffffff !important;
+        transform: translateY(-1px);
+    }
+</style>
+
+<div class="scanners-container container-fluid">
+    <div class="scanners-header mb-4">
+        <h2>Scanner Device Management</h2>
+        <p class="text-muted mb-0">Monitor receiver health, clean legacy records, and configure receiver metadata.</p>
+    </div>
+
+    <div class="card card-custom">
+        <div class="table-responsive">
+            <table class="table table-custom">
+                <thead>
+                    <tr>
+                        <th>Scanner ID</th>
+                        <th>Scanner Name</th>
+                        <th>Building</th>
+                        <th>Floor</th>
+                        <th>Location</th>
+                        <th>Status</th>
+                        <th>Health</th>
+                        <th>Last Seen</th>
+                        <th class="text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @if (!Model.Any())
+                    {
+                        <tr>
+                            <td colspan="9" class="text-center py-5 text-muted">
+                                <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="mb-3 d-block mx-auto text-secondary">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+                                </svg>
+                                No scanner devices found in the database.
+                            </td>
+                        </tr>
+                    }
+                    else
+                    {
+                        foreach (var scanner in Model)
+                        {
+                            bool isOnline = string.Equals(scanner.Status, "Online", StringComparison.OrdinalIgnoreCase);
+                            string badgeClass = isOnline ? "badge-online" : "badge-offline";
+                            string dotClass = isOnline ? "bg-online" : "bg-offline";
+
+                            string health = GetHealth(scanner.LastSeen);
+                            string healthClass = GetHealthBadgeClass(health);
+
+                            <tr>
+                                <td class="scanner-id">@scanner.ScannerId</td>
+                                <td class="scanner-name">
+                                    @scanner.ScannerName
+                                    @if (IsLegacyScanner(scanner))
+                                    {
+                                        <div class="text-warning small mt-1" style="font-size: 0.75rem; font-weight: 500;">
+                                            <i class="bi bi-exclamation-triangle"></i> Legacy scanner record. Consider deleting if no longer used.
+                                        </div>
+                                    }
+                                </td>
+                                <td>@scanner.Building</td>
+                                <td>@scanner.Floor</td>
+                                <td>@scanner.Location</td>
+                                <td>
+                                    <span class="badge-status @badgeClass">
+                                        <span class="status-dot @dotClass"></span>
+                                        @scanner.Status
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="badge @healthClass">@health</span>
+                                </td>
+                                <td>@FormatLastSeen(scanner.LastSeen)</td>
+                                <td class="text-end">
+                                    <div class="d-flex gap-2 justify-content-end">
+                                        <a asp-action="Edit" asp-route-id="@scanner.ScannerId" class="btn btn-edit-custom">
+                                            Edit
+                                        </a>
+                                        <a asp-action="Delete" asp-route-id="@scanner.ScannerId" class="btn btn-delete-custom">
+                                            Delete
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
