@@ -34,8 +34,7 @@ namespace AssetTracking.Web.Controllers
                     .ToListAsync();
 
                 var now = DateTime.Now;
-                int offlineTimeout = _configuration.GetValue<int?>("ScannerSettings:OfflineTimeoutSeconds") ?? 30;
-                var cutoff30 = now.AddSeconds(-offlineTimeout);
+                var cutoff30 = now.AddSeconds(-30);
 
                 int onlineDevices = 0;
                 int offlineDevices = 0;
@@ -46,7 +45,7 @@ namespace AssetTracking.Web.Controllers
                 {
                     // Find recent telemetries within the last 30 seconds
                     var recentTelemetries = device.Telemetries
-                        .Where(t => t.ReceiveTime >= cutoff30)
+                        .Where(t => AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(t.ReceiveTime) >= cutoff30)
                         .ToList();
 
                     BeaconTelemetry? selectedTelemetry = null;
@@ -62,7 +61,7 @@ namespace AssetTracking.Web.Controllers
                     else
                     {
                         // Fall back to the absolute latest telemetry for last known location, but status is Offline
-                        selectedTelemetry = device.Telemetries.OrderByDescending(t => t.ReceiveTime).FirstOrDefault();
+                        selectedTelemetry = device.Telemetries.OrderByDescending(t => AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(t.ReceiveTime)).FirstOrDefault();
                         status = "Offline";
                         offlineDevices++;
                     }
@@ -93,13 +92,40 @@ namespace AssetTracking.Web.Controllers
                         zAxis = selectedTelemetry?.ZAxis ?? 0.0,
                         isMoving = isMoving,
                         status = status,
-                        lastSeen = device.LastSeen,
+                        lastSeen = device.LastSeen.HasValue ? AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(device.LastSeen.Value) : (DateTime?)null,
+                        lastSeenFormatted = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(device.LastSeen),
                         scannerId = selectedTelemetry?.Scanner?.ScannerId,
                         scannerName = selectedTelemetry?.Scanner?.ScannerName,
                         building = selectedTelemetry?.Scanner?.Building,
                         floor = selectedTelemetry?.Scanner?.Floor,
                         location = selectedTelemetry?.Scanner?.Location
                     };
+                }).ToList();
+
+                var activeAlerts = await _context.AlertLogs
+                    .Where(a => !a.IsResolved)
+                    .ToListAsync();
+
+                var alertsSummary = new
+                {
+                    critical = activeAlerts.Count(a => string.Equals(a.Severity, "Critical", StringComparison.OrdinalIgnoreCase)),
+                    warning = activeAlerts.Count(a => string.Equals(a.Severity, "Warning", StringComparison.OrdinalIgnoreCase)),
+                    info = activeAlerts.Count(a => string.Equals(a.Severity, "Info", StringComparison.OrdinalIgnoreCase)),
+                    active = activeAlerts.Count
+                };
+
+                // Get recent 5 alerts
+                var recentAlerts = await _context.AlertLogs
+                    .Include(a => a.Device)
+                    .OrderByDescending(a => a.AlertTime)
+                    .Take(5)
+                    .ToListAsync();
+
+                var recentAlertsData = recentAlerts.Select(a => new
+                {
+                    deviceName = a.Device?.DeviceName ?? a.Device?.MacAddress ?? "Unknown Device",
+                    alertType = a.AlertType,
+                    relativeTime = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(a.AlertTime)
                 }).ToList();
 
                 var summary = new
@@ -113,7 +139,9 @@ namespace AssetTracking.Web.Controllers
                 return Ok(new
                 {
                     summary,
-                    devices = deviceData
+                    devices = deviceData,
+                    alertsSummary,
+                    recentAlerts = recentAlertsData
                 });
             }
             catch (Exception ex)

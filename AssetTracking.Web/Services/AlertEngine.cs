@@ -302,13 +302,10 @@ namespace AssetTracking.Web.Services
         {
             try
             {
-                var now = DateTime.Now;
-                int offlineTimeout = _configuration.GetValue<int?>("ScannerSettings:OfflineTimeoutSeconds") ?? 30;
-                var cutoff30 = now.AddSeconds(-offlineTimeout);
-
-                var offlineDevices = await _context.BeaconDevices
-                    .Where(d => d.LastSeen == null || d.LastSeen < cutoff30)
-                    .ToListAsync();
+                var devices = await _context.BeaconDevices.ToListAsync();
+                var offlineDevices = devices
+                    .Where(d => !AssetTracking.Web.Helpers.DateTimeHelper.IsOnline(d.LastSeen))
+                    .ToList();
 
                 foreach (var device in offlineDevices)
                 {
@@ -322,7 +319,7 @@ namespace AssetTracking.Web.Services
                             .OrderByDescending(t => t.ReceiveTime)
                             .FirstOrDefaultAsync();
 
-                        string lastSeenStr = device.LastSeen.HasValue ? device.LastSeen.Value.ToString("yyyy-MM-dd HH:mm:ss") : "Never";
+                        string lastSeenStr = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(device.LastSeen);
 
                         var alert = new AlertLog
                         {

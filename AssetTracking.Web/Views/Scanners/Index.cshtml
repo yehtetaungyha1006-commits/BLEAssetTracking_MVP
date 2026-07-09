@@ -7,7 +7,8 @@
     string GetHealth(DateTime? lastSeen)
     {
         if (lastSeen == null) return "Offline";
-        var diff = DateTime.Now - lastSeen.Value;
+        var localLastSeen = AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(lastSeen.Value);
+        var diff = DateTime.Now - localLastSeen;
         if (diff.TotalSeconds <= 30) return "Healthy";
         if (diff.TotalSeconds <= 120) return "Warning";
         return "Offline";
@@ -24,20 +25,7 @@
         };
     }
 
-    string FormatLastSeen(DateTime? lastSeen)
-    {
-        if (lastSeen == null) return "Never";
-        var diff = DateTime.Now - lastSeen.Value;
-        var totalSecs = diff.TotalSeconds;
-        if (totalSecs < 0) totalSecs = 0; // handle timezone/clock skew slightly
 
-        if (totalSecs < 10) return "just now";
-        if (totalSecs < 60) return $"{(int)totalSecs} sec ago";
-        if (totalSecs < 3600) return $"{(int)(totalSecs / 60)} min ago";
-        if (totalSecs < 86400) return $"{(int)(totalSecs / 3600)} hr ago";
-        if (totalSecs < 604800) return $"{(int)(totalSecs / 86400)} days ago";
-        return lastSeen.Value.ToString("yyyy-MM-dd HH:mm");
-    }
 
     bool IsLegacyScanner(ScannerDevice scanner)
     {
@@ -253,7 +241,7 @@
                                 <td>
                                     <span class="badge @healthClass">@health</span>
                                 </td>
-                                <td>@FormatLastSeen(scanner.LastSeen)</td>
+                                <td>@AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(scanner.LastSeen)</td>
                                 <td class="text-end">
                                     <div class="d-flex gap-2 justify-content-end">
                                         <a asp-action="Edit" asp-route-id="@scanner.ScannerId" class="btn btn-edit-custom">

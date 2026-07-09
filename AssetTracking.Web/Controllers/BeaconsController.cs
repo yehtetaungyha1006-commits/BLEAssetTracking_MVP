@@ -23,18 +23,9 @@ namespace AssetTracking.Web.Controllers
         public async Task<IActionResult> Index()
         {
             var beacons = await _context.BeaconDevices.AsNoTracking().ToListAsync();
-            var now = DateTime.Now;
-            int offlineTimeout = _configuration.GetValue<int?>("ScannerSettings:OfflineTimeoutSeconds") ?? 30;
             foreach (var beacon in beacons)
             {
-                if (beacon.LastSeen == null || (now - beacon.LastSeen.Value).TotalSeconds > offlineTimeout)
-                {
-                    beacon.Status = "Offline";
-                }
-                else
-                {
-                    beacon.Status = "Online";
-                }
+                beacon.Status = AssetTracking.Web.Helpers.DateTimeHelper.IsOnline(beacon.LastSeen) ? "Online" : "Offline";
             }
             return View(beacons);
         }
@@ -106,6 +97,7 @@ namespace AssetTracking.Web.Controllers
             {
                 return NotFound();
             }
+            beacon.Status = AssetTracking.Web.Helpers.DateTimeHelper.GetBeaconDisplayStatus(beacon.LastSeen);
             return View(beacon);
         }
 
@@ -182,6 +174,13 @@ namespace AssetTracking.Web.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
+            var existing = await _context.BeaconDevices.AsNoTracking().FirstOrDefaultAsync(b => b.DeviceId == id);
+            if (existing != null)
+            {
+                beacon.LastSeen = existing.LastSeen;
+                beacon.CreatedAt = existing.CreatedAt;
+            }
+            beacon.Status = AssetTracking.Web.Helpers.DateTimeHelper.GetBeaconDisplayStatus(beacon.LastSeen);
             return View(beacon);
         }
 
@@ -199,7 +198,7 @@ namespace AssetTracking.Web.Controllers
             {
                 return NotFound();
             }
-
+            beacon.Status = AssetTracking.Web.Helpers.DateTimeHelper.GetBeaconDisplayStatus(beacon.LastSeen);
             return View(beacon);
         }
 

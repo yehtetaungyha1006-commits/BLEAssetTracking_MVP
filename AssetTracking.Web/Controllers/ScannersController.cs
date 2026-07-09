@@ -23,18 +23,9 @@ namespace AssetTracking.Web.Controllers
         public async Task<IActionResult> Index()
         {
             var scanners = await _context.Scanners.ToListAsync();
-            var now = DateTime.Now;
-            int offlineTimeout = _configuration.GetValue<int?>("ScannerSettings:OfflineTimeoutSeconds") ?? 30;
             foreach (var scanner in scanners)
             {
-                if (scanner.LastSeen == null || (now - scanner.LastSeen.Value).TotalSeconds > offlineTimeout)
-                {
-                    scanner.Status = "Offline";
-                }
-                else
-                {
-                    scanner.Status = "Online";
-                }
+                scanner.Status = AssetTracking.Web.Helpers.DateTimeHelper.IsOnline(scanner.LastSeen) ? "Online" : "Offline";
             }
             return View(scanners);
         }
@@ -139,9 +130,21 @@ namespace AssetTracking.Web.Controllers
             }
 
             // Check if scanner has recent telemetry within last 5 minutes
-            var fiveMinutesAgo = DateTime.Now.AddMinutes(-5);
-            var hasRecentTelemetry = await _context.BeaconTelemetries
-                .AnyAsync(t => t.ScannerId == id && t.ReceiveTime >= fiveMinutesAgo);
+            var latestTelemetryTime = await _context.BeaconTelemetries
+                .Where(t => t.ScannerId == id)
+                .OrderByDescending(t => t.ReceiveTime)
+                .Select(t => (DateTime?)t.ReceiveTime)
+                .FirstOrDefaultAsync();
+
+            bool hasRecentTelemetry = false;
+            if (latestTelemetryTime.HasValue)
+            {
+                var localLatest = AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(latestTelemetryTime.Value);
+                if ((DateTime.Now - localLatest).TotalMinutes <= 5)
+                {
+                    hasRecentTelemetry = true;
+                }
+            }
 
             ViewBag.HasRecentTelemetry = hasRecentTelemetry;
 
@@ -160,9 +163,21 @@ namespace AssetTracking.Web.Controllers
             }
 
             // Check if scanner has recent telemetry within last 5 minutes
-            var fiveMinutesAgo = DateTime.Now.AddMinutes(-5);
-            var hasRecentTelemetry = await _context.BeaconTelemetries
-                .AnyAsync(t => t.ScannerId == id && t.ReceiveTime >= fiveMinutesAgo);
+            var latestTelemetryTime = await _context.BeaconTelemetries
+                .Where(t => t.ScannerId == id)
+                .OrderByDescending(t => t.ReceiveTime)
+                .Select(t => (DateTime?)t.ReceiveTime)
+                .FirstOrDefaultAsync();
+
+            bool hasRecentTelemetry = false;
+            if (latestTelemetryTime.HasValue)
+            {
+                var localLatest = AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(latestTelemetryTime.Value);
+                if ((DateTime.Now - localLatest).TotalMinutes <= 5)
+                {
+                    hasRecentTelemetry = true;
+                }
+            }
 
             if (hasRecentTelemetry)
             {

@@ -3,22 +3,7 @@
     ViewData["Title"] = "Beacon Management";
 }
 
-@functions {
-    string FormatLastSeen(DateTime? lastSeen)
-    {
-        if (lastSeen == null) return "Never";
-        var diff = DateTime.Now - lastSeen.Value;
-        var totalSecs = diff.TotalSeconds;
-        if (totalSecs < 0) totalSecs = 0; // handle timezone/clock skew slightly
 
-        if (totalSecs < 10) return "just now";
-        if (totalSecs < 60) return $"{(int)totalSecs} sec ago";
-        if (totalSecs < 3600) return $"{(int)(totalSecs / 60)} min ago";
-        if (totalSecs < 86400) return $"{(int)(totalSecs / 3600)} hr ago";
-        if (totalSecs < 604800) return $"{(int)(totalSecs / 86400)} days ago";
-        return lastSeen.Value.ToString("yyyy-MM-dd HH:mm");
-    }
-}
 
 <style>
     .beacons-header h2 {
@@ -139,7 +124,7 @@
                                         @(beacon.Status ?? "Offline")
                                     </span>
                                 </td>
-                                <td>@FormatLastSeen(beacon.LastSeen)</td>
+                                <td>@AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(beacon.LastSeen)</td>
                                 <td class="text-end">
                                     <div class="d-inline-flex gap-2">
                                         <a asp-action="Edit" asp-route-id="@beacon.DeviceId" class="btn btn-outline-info btn-sm px-3" style="border-radius: 0.5rem; font-weight: 600;">

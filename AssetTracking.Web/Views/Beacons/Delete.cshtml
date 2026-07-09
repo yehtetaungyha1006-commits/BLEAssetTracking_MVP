@@ -3,75 +3,298 @@
     ViewData["Title"] = "Delete Beacon";
 }
 
-<div class="edit-scanner-container container">
-    <div class="edit-header mb-4">
+<style>
+    .delete-beacon-page {
+        padding: 2rem 1rem;
+        max-width: 540px;
+        margin: 0 auto;
+    }
+    
+    .delete-title-container {
+        margin-bottom: 1.5rem;
+    }
+
+    .delete-title-container h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        background: linear-gradient(to right, #ffffff, #cbd5e1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.25rem;
+    }
+
+    .delete-title-container p {
+        color: #94a3b8;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    /* Warning alert container */
+    .danger-alert-box {
+        background-color: rgba(220, 38, 38, 0.12);
+        border: 1px solid rgba(220, 38, 38, 0.3);
+        border-radius: 8px;
+        padding: 0.75rem 1.25rem;
+        color: #fca5a5;
+        font-weight: 500;
+        font-size: 0.9rem;
+        line-height: 1.5;
+        margin-bottom: 1.5rem;
+    }
+
+    /* Details Card */
+    .delete-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+    }
+
+    .delete-card-content {
+        padding: 1.25rem 1.25rem 0.75rem 1.25rem; /* 20px padding */
+    }
+
+    .delete-card-content h4 {
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: #ffffff;
+        margin-bottom: 1rem;
+        letter-spacing: -0.01em;
+    }
+
+    /* Clean two-column table */
+    .details-table-custom {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    .details-table-custom tr {
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+    }
+
+    .details-table-custom tr:last-child {
+        border-bottom: none;
+    }
+
+    .details-table-custom td {
+        padding: 0.75rem 0.5rem; /* tight cell padding */
+        vertical-align: middle;
+        font-size: 0.9rem;
+        line-height: 1.4;
+    }
+
+    .details-table-custom td.label-col {
+        color: #94a3b8;
+        width: 35%;
+        font-weight: 400;
+        padding-left: 0.25rem;
+    }
+
+    .details-table-custom td.val-col {
+        color: #ffffff;
+        font-weight: 600;
+        padding-right: 0.25rem;
+    }
+
+    /* Status Badge */
+    .status-badge-custom {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+        padding: 0.25rem 0.65rem;
+        border-radius: 9999px;
+        font-size: 0.8rem;
+        font-weight: 600;
+    }
+
+    .status-badge-custom.online {
+        background-color: rgba(16, 185, 129, 0.1);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.2);
+    }
+
+    .status-badge-custom.offline {
+        background-color: rgba(148, 163, 184, 0.12);
+        color: #94a3b8;
+        border: 1px solid rgba(148, 163, 184, 0.2);
+    }
+
+    .status-dot-custom {
+        width: 5px;
+        height: 5px;
+        border-radius: 50%;
+        display: inline-block;
+    }
+
+    .status-dot-custom.online {
+        background-color: #10b981;
+        box-shadow: 0 0 6px #10b981;
+    }
+
+    .status-dot-custom.offline {
+        background-color: #94a3b8;
+    }
+
+    /* Footer Action Area */
+    .delete-card-footer {
+        background-color: rgba(0, 0, 0, 0.15);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 1rem 1.25rem;
+    }
+
+    /* Buttons */
+    .btn-confirm-delete {
+        background-color: #ef4444;
+        color: #ffffff !important;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+        box-shadow: 0 2px 8px rgba(239, 68, 68, 0.15);
+    }
+
+    .btn-confirm-delete:hover {
+        background-color: #dc2626;
+    }
+
+    .btn-confirm-delete:active {
+        transform: scale(0.98);
+    }
+
+    .btn-cancel-custom {
+        background-color: transparent;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 0.5rem 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+    }
+
+    .btn-cancel-custom:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .btn-cancel-custom:active {
+        transform: scale(0.98);
+    }
+
+    /* Responsive */
+    @@media (max-width: 576px) {
+        .delete-beacon-page {
+            padding: 1.5rem 1rem;
+        }
+
+        .delete-card-footer form {
+            flex-direction: column-reverse;
+            gap: 0.6rem;
+            align-items: stretch !important;
+            width: 100%;
+        }
+
+        .btn-confirm-delete,
+        .btn-cancel-custom {
+            width: 100% !important;
+            height: 40px;
+        }
+        
+        .details-table-custom td.label-col {
+            width: 40%;
+        }
+    }
+</style>
+
+<div class="delete-beacon-page">
+    <!-- Page Header -->
+    <div class="delete-title-container text-start">
         <h2>Delete Beacon</h2>
-        <p class="text-danger fw-semibold">Are you sure you want to delete this beacon? This action is permanent and cannot be undone.</p>
+        <p>Verify beacon details before deletion.</p>
     </div>
 
-    <div class="card-form border border-danger-subtle">
-        <h4 class="text-white mb-4">Beacon Details</h4>
-        
-        <div class="row mb-3">
-            <div class="col-sm-4 text-muted label-custom">Device ID</div>
-            <div class="col-sm-8 text-white font-monospace">@Model.DeviceId</div>
+    <!-- Compact Red Warning Panel -->
+    <div class="danger-alert-box">
+        Deleting this beacon is permanent and cannot be undone.
+    </div>
+
+    <!-- Beacon Details Card -->
+    <div class="delete-card">
+        <div class="delete-card-content">
+            <h4>Beacon Specifications</h4>
+            
+            <table class="details-table-custom">
+                <tbody>
+                    <tr>
+                        <td class="label-col">Device ID</td>
+                        <td class="val-col font-monospace text-secondary">@Model.DeviceId</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Device Name</td>
+                        <td class="val-col">@(Model.DeviceName ?? "Unnamed Beacon")</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">MAC Address</td>
+                        <td class="val-col font-monospace">@Model.MacAddress</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Major</td>
+                        <td class="val-col">@Model.Major</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Minor</td>
+                        <td class="val-col">@Model.Minor</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Status</td>
+                        <td class="val-col">
+                            @{
+                                bool isOnline = Model.Status != null && Model.Status.Equals("Online", StringComparison.OrdinalIgnoreCase);
+                                string statusClass = isOnline ? "online" : "offline";
+                            }
+                            <span class="status-badge-custom @statusClass">
+                                <span class="status-dot-custom @statusClass"></span>
+                                @(Model.Status ?? "Offline")
+                            </span>
+                        </td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Last Seen</td>
+                        <td class="val-col">@AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(Model.LastSeen)</td>
+                    </tr>
+                    <tr>
+                        <td class="label-col">Created At</td>
+                        <td class="val-col">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
 
-        <div class="row mb-3">
-            <div class="col-sm-4 text-muted label-custom">Device Name</div>
-            <div class="col-sm-8 text-white fw-bold">@(Model.DeviceName ?? "Unnamed Beacon")</div>
-        </div>
-
-        <div class="row mb-3">
-            <div class="col-sm-4 text-muted label-custom">MAC Address</div>
-            <div class="col-sm-8 text-white font-monospace">@Model.MacAddress</div>
-        </div>
-
-        <div class="row mb-3">
-            <div class="col-sm-4 text-muted label-custom">Major</div>
-            <div class="col-sm-8 text-white">@Model.Major</div>
-        </div>
-
-        <div class="row mb-3">
-            <div class="col-sm-4 text-muted label-custom">Minor</div>
-            <div class="col-sm-8 text-white">@Model.Minor</div>
-        </div>
-
-        <div class="row mb-3">
-            <div class="col-sm-4 text-muted label-custom">Status</div>
-            <div class="col-sm-8 text-white">
-                @{
-                    bool isOnline = Model.Status != null && Model.Status.Equals("Online", StringComparison.OrdinalIgnoreCase);
-                    string badgeClass = isOnline ? "badge-online" : "badge-offline";
-                    string dotClass = isOnline ? "bg-online" : "bg-offline";
-                }
-                <span class="badge-status @badgeClass">
-                    <span class="status-dot @dotClass"></span>
-                    @(Model.Status ?? "Offline")
-                </span>
-            </div>
-        </div>
-
-        <div class="row mb-3">
-            <div class="col-sm-4 text-muted label-custom">Last Seen</div>
-            <div class="col-sm-8 text-white">@(Model.LastSeen?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never")</div>
-        </div>
-
-        <div class="row mb-4">
-            <div class="col-sm-4 text-muted label-custom">Created At</div>
-            <div class="col-sm-8 text-white">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</div>
-        </div>
-
-        <form asp-action="Delete" method="post">
-            <input type="hidden" asp-for="DeviceId" />
-            <div class="d-flex justify-content-between align-items-center mt-4">
-                <a asp-action="Index" class="btn-cancel">
+        <!-- Footer Action Area -->
+        <div class="delete-card-footer">
+            <form asp-action="Delete" method="post" class="w-100 d-flex justify-content-end gap-3 align-items-center">
+                <input type="hidden" asp-for="DeviceId" />
+                <a asp-action="Index" class="btn-cancel-custom">
                     Cancel
                 </a>
-                <button type="submit" class="btn btn-danger px-4 py-2" style="border-radius: 0.5rem; font-weight: 600;">
+                <button type="submit" class="btn-confirm-delete">
                     Confirm Delete
                 </button>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>

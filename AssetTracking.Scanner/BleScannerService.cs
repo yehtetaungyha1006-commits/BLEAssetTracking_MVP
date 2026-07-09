@@ -40,6 +40,7 @@ namespace AssetTracking.Scanner
         private int TelemetryIntervalSeconds => _configuration.GetValue<int?>("ScannerSettings:TelemetryIntervalSeconds") ?? 2;
         private int OfflineTimeoutSeconds => _configuration.GetValue<int?>("ScannerSettings:OfflineTimeoutSeconds") ?? 30;
         private int MinimumRssi => _configuration.GetValue<int?>("ScannerSettings:MinimumRssi") ?? -100;
+        private string ApiBaseUrl => _configuration.GetValue<string>("ApiSettings:BaseUrl") ?? "http://localhost:5176";
 
         public BleScannerService(ILogger<BleScannerService> logger, IConfiguration configuration)
         {
@@ -199,7 +200,6 @@ namespace AssetTracking.Scanner
         {
             var receiveTime = DateTime.Now;
             var scannerId = Environment.MachineName;
-            var scannerBuilding = _configuration["ScannerSettings:Building"] ?? "A";
 
             var telemetry = new BeaconTelemetryDto
             {
@@ -213,15 +213,14 @@ namespace AssetTracking.Scanner
                 IsMoving = false,
                 ReceiveTime = receiveTime,
                 ScannerId = scannerId,
-                ScannerName = scannerId,
-                ScannerBuilding = scannerBuilding,
                 Major = major,
                 Minor = minor
             };
  
             try
             {
-                var response = await _httpClient.PostAsJsonAsync("http://localhost:5176/api/beacon/telemetry", telemetry, stoppingToken);
+                var baseUrl = ApiBaseUrl.TrimEnd('/');
+                var response = await _httpClient.PostAsJsonAsync($"{baseUrl}/api/beacon/telemetry", telemetry, stoppingToken);
                 if (response.IsSuccessStatusCode)
                 {
                     _logger.LogInformation("Minew E7 sent to API | Scanner: {ScannerId} | RSSI: {Rssi}", scannerId, rssi);

@@ -125,6 +125,43 @@
     .alert-msg {
         color: #f8fafc;
     }
+
+    .alert-row-clickable {
+        cursor: pointer;
+        transition: background-color 0.15s ease;
+    }
+
+    .alert-row-clickable:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+    }
+
+    .badge-alert-type {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.3rem 0.65rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 6px;
+    }
+    
+    .badge-alert-type.critical {
+        background-color: rgba(239, 68, 68, 0.12) !important;
+        color: #f87171 !important;
+        border: 1px solid rgba(239, 68, 68, 0.2) !important;
+    }
+    
+    .badge-alert-type.warning {
+        background-color: rgba(245, 158, 11, 0.12) !important;
+        color: #fbbf24 !important;
+        border: 1px solid rgba(245, 158, 11, 0.2) !important;
+    }
+    
+    .badge-alert-type.info {
+        background-color: rgba(59, 130, 246, 0.12) !important;
+        color: #60a5fa !important;
+        border: 1px solid rgba(59, 130, 246, 0.2) !important;
+    }
 </style>
 
 <div class="container-fluid">
@@ -197,21 +234,17 @@
             <table class="table table-custom mb-0">
                 <thead>
                     <tr>
-                        <th>Created Time</th>
-                        <th>Severity</th>
-                        <th>Alert Type</th>
-                        <th>Device Name</th>
-                        <th>MAC Address</th>
-                        <th>Scanner</th>
-                        <th>Message</th>
-                        <th>Status</th>
+                        <th style="width: 20%;">Time</th>
+                        <th style="width: 25%;">Device</th>
+                        <th style="width: 40%;">Alert</th>
+                        <th style="width: 15%;">Status</th>
                     </tr>
                 </thead>
                 <tbody>
                     @if (!Model.Any())
                     {
                         <tr>
-                            <td colspan="8" class="text-center py-5 text-muted">
+                            <td colspan="4" class="text-center py-5 text-muted">
                                 No matching alerts found.
                             </td>
                         </tr>
@@ -222,27 +255,35 @@
                         {
                             string severityClass = alert.Severity switch
                             {
-                                "Critical" => "badge-severity-critical",
-                                "Warning" => "badge-severity-warning",
-                                "Info" or _ => "badge-severity-info"
+                                "Critical" => "critical",
+                                "Warning" => "warning",
+                                "Info" or _ => "info"
                             };
 
                             string statusClass = alert.IsResolved ? "badge-status-resolved" : "badge-status-active";
                             string statusText = alert.IsResolved ? "Resolved" : "Active";
                             string scannerText = alert.Scanner?.ScannerName ?? alert.ScannerId ?? "-";
+                            string deviceName = alert.Device?.DeviceName ?? alert.Device?.MacAddress ?? "-";
+                            string relativeTime = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(alert.AlertTime);
+                            string lastSeenStr = alert.Device?.LastSeen.HasValue == true 
+                                ? AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(alert.Device.LastSeen) 
+                                : "Never";
 
-                            <tr>
-                                <td class="alert-time">@alert.AlertTime.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            <tr class="alert-row-clickable" 
+                                data-bs-toggle="modal" 
+                                data-bs-target="#alertDetailModal"
+                                data-device-name="@(alert.Device?.DeviceName ?? "Unnamed Device")"
+                                data-mac-address="@(alert.Device?.MacAddress ?? "-")"
+                                data-scanner="@scannerText"
+                                data-message="@alert.AlertMessage"
+                                data-severity="@alert.Severity"
+                                data-last-seen="@lastSeenStr"
+                                data-created-time="@alert.AlertTime.ToString("yyyy-MM-dd HH:mm:ss")">
+                                <td class="alert-time">@relativeTime</td>
+                                <td class="device-name">@deviceName</td>
                                 <td>
-                                    <span class="badge-severity @severityClass">@alert.Severity</span>
+                                    <span class="badge-alert-type @severityClass">@alert.Severity • @alert.AlertType</span>
                                 </td>
-                                <td>
-                                    <span class="text-white fw-semibold">@alert.AlertType</span>
-                                </td>
-                                <td class="device-name">@(alert.Device?.DeviceName ?? "-")</td>
-                                <td class="mac-address">@(alert.Device?.MacAddress ?? "-")</td>
-                                <td class="text-white">@scannerText</td>
-                                <td class="alert-msg">@alert.AlertMessage</td>
                                 <td>
                                     <span class="badge-status @statusClass">@statusText</span>
                                 </td>
@@ -284,3 +325,83 @@
         </nav>
     }
 </div>
+
+<!-- Details Modal -->
+<div class="modal fade" id="alertDetailModal" tabindex="-1" aria-labelledby="alertDetailModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background-color: var(--card-bg); border: 1px solid var(--border-color); border-radius: 12px; color: #ffffff;">
+            <div class="modal-header" style="border-bottom: 1px solid rgba(255, 255, 255, 0.08); padding: 1.25rem;">
+                <h5 class="modal-title fw-bold" id="alertDetailModalLabel" style="font-size: 1.15rem;">Alert Details</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body" style="padding: 1.5rem;">
+                <table class="table table-borderless text-white mb-0" style="font-size: 0.95rem;">
+                    <tbody>
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                            <td class="text-muted py-2.5" style="width: 35%;">Device Name</td>
+                            <td id="modal-device-name" class="fw-semibold py-2.5"></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                            <td class="text-muted py-2.5">MAC Address</td>
+                            <td id="modal-mac-address" class="font-monospace py-2.5"></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                            <td class="text-muted py-2.5">Scanner</td>
+                            <td id="modal-scanner" class="py-2.5"></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                            <td class="text-muted py-2.5">Severity</td>
+                            <td class="py-2.5"><span id="modal-severity" class="badge"></span></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                            <td class="text-muted py-2.5">Last Seen</td>
+                            <td id="modal-last-seen" class="py-2.5"></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.05);">
+                            <td class="text-muted py-2.5">Created Time</td>
+                            <td id="modal-created-time" class="font-monospace py-2.5"></td>
+                        </tr>
+                        <tr>
+                            <td class="text-muted py-3">Message</td>
+                            <td id="modal-message" class="py-3" style="white-space: pre-wrap; line-height: 1.5; color: #e2e8f0;"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="modal-footer" style="border-top: 1px solid rgba(255, 255, 255, 0.08); padding: 1rem 1.25rem;">
+                <button type="button" class="btn btn-outline-light btn-sm px-4" data-bs-dismiss="modal" style="border-radius: 6px; font-weight: 600;">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function () {
+        const detailModal = document.getElementById('alertDetailModal');
+        if (detailModal) {
+            detailModal.addEventListener('show.bs.modal', function (event) {
+                const row = event.relatedTarget;
+                
+                document.getElementById('modal-device-name').innerText = row.getAttribute('data-device-name');
+                document.getElementById('modal-mac-address').innerText = row.getAttribute('data-mac-address');
+                document.getElementById('modal-scanner').innerText = row.getAttribute('data-scanner');
+                document.getElementById('modal-message').innerText = row.getAttribute('data-message');
+                document.getElementById('modal-severity').innerText = row.getAttribute('data-severity');
+                document.getElementById('modal-last-seen').innerText = row.getAttribute('data-last-seen');
+                document.getElementById('modal-created-time').innerText = row.getAttribute('data-created-time');
+
+                // Adjust severity badge color in modal
+                const severity = row.getAttribute('data-severity') || 'Info';
+                const badge = document.getElementById('modal-severity');
+                badge.className = 'badge';
+                if (severity === 'Critical') {
+                    badge.classList.add('bg-danger');
+                } else if (severity === 'Warning') {
+                    badge.classList.add('bg-warning', 'text-dark');
+                } else {
+                    badge.classList.add('bg-info');
+                }
+            });
+        }
+    });
+</script>

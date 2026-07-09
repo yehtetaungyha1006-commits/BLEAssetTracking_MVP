@@ -70,29 +70,25 @@ namespace AssetTracking.Web.Controllers
                     scanner = await _context.Scanners
                         .FirstOrDefaultAsync(s => s.ScannerId == telemetryDto.ScannerId);
 
-                     if (scanner == null)
-                     {
-                         bool enableAutoReg = _configuration.GetValue<bool?>("ScannerSettings:EnableAutoRegistration") ?? true;
-                         if (enableAutoReg)
-                         {
-                             scanner = new ScannerDevice
-                             {
-                                 ScannerId = telemetryDto.ScannerId,
-                                 ScannerName = telemetryDto.ScannerId,
-                                 Building = "Unknown",
-                                 Floor = "Unknown",
-                                 Location = "Unknown",
-                                 Status = "Online",
-                                 LastSeen = DateTime.Now,
-                                 CreatedAt = DateTime.Now
-                             };
-                             _context.Scanners.Add(scanner);
-                             await _context.SaveChangesAsync();
+                    if (scanner == null)
+                    {
+                        scanner = new ScannerDevice
+                        {
+                            ScannerId = telemetryDto.ScannerId,
+                            ScannerName = "Unknown",
+                            Building = "Unknown",
+                            Floor = "Unknown",
+                            Location = "Unknown",
+                            Status = "Online",
+                            LastSeen = DateTime.Now,
+                            CreatedAt = DateTime.Now
+                        };
+                        _context.Scanners.Add(scanner);
+                        await _context.SaveChangesAsync();
 
-                             // Trigger New Scanner Alert
-                             await _alertEngine.ProcessNewScannerAlertAsync(scanner);
-                         }
-                     }
+                        // Trigger New Scanner Alert
+                        await _alertEngine.ProcessNewScannerAlertAsync(scanner);
+                    }
                     else
                     {
                         scanner.Status = "Online";

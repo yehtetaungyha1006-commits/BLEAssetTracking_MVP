@@ -32,8 +32,7 @@ namespace AssetTracking.Web.Controllers
         public async Task<IActionResult> GetLiveData()
         {
             var now = DateTime.Now;
-            int offlineTimeout = _configuration.GetValue<int?>("ScannerSettings:OfflineTimeoutSeconds") ?? 30;
-            var cutoff30 = now.AddSeconds(-offlineTimeout);
+            var cutoff30 = now.AddSeconds(-30);
             var beacons = await _context.BeaconDevices
                 .Include(b => b.Telemetries)
                     .ThenInclude(t => t.Scanner)
@@ -43,7 +42,7 @@ namespace AssetTracking.Web.Controllers
             var data = beacons.Select(b => {
                 // Find recent telemetries within the last 30 seconds
                 var recentTelemetries = b.Telemetries
-                    .Where(t => t.ReceiveTime >= cutoff30)
+                    .Where(t => AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(t.ReceiveTime) >= cutoff30)
                     .ToList();
 
                 BeaconTelemetry? selectedTelemetry = null;
@@ -58,7 +57,7 @@ namespace AssetTracking.Web.Controllers
                 else
                 {
                     // Fall back to absolute latest telemetry for last known location, but status is Offline
-                    selectedTelemetry = b.Telemetries.OrderByDescending(t => t.ReceiveTime).FirstOrDefault();
+                    selectedTelemetry = b.Telemetries.OrderByDescending(t => AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(t.ReceiveTime)).FirstOrDefault();
                     status = "Offline";
                 }
 
@@ -72,7 +71,7 @@ namespace AssetTracking.Web.Controllers
                     location = selectedTelemetry?.Scanner?.Location ?? "-",
                     rssi = selectedTelemetry?.Rssi ?? 0,
                     battery = selectedTelemetry?.BatteryLevel ?? 0,
-                    lastSeen = b.LastSeen?.ToString("yyyy-MM-dd HH:mm:ss") ?? "Never"
+                    lastSeen = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(b.LastSeen)
                 };
             }).ToList();
 
