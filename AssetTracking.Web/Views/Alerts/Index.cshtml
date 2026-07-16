@@ -41,15 +41,32 @@
         border-color: rgba(255, 255, 255, 0.25) !important;
     }
 
+    .pagination-custom .page-item-prev-next .page-link {
+        background-color: transparent !important;
+        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        color: #cbd5e1 !important;
+    }
+
+    .pagination-custom .page-item-prev-next .page-link:hover {
+        background-color: rgba(255, 255, 255, 0.05) !important;
+        color: #ffffff !important;
+        border-color: rgba(255, 255, 255, 0.4) !important;
+    }
+
     .pagination-custom .page-item.active .page-link {
         background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%) !important;
         border-color: transparent !important;
         color: #ffffff !important;
     }
 
+    .pagination-custom .page-item.disabled {
+        opacity: 0.4;
+        pointer-events: none;
+    }
+
     .pagination-custom .page-item.disabled .page-link {
-        background-color: rgba(0, 0, 0, 0.2) !important;
-        border-color: rgba(255, 255, 255, 0.04) !important;
+        background-color: transparent !important;
+        border-color: var(--border-color) !important;
         color: #64748b !important;
     }
 
@@ -175,7 +192,7 @@
         <form method="get" class="row g-3 align-items-end">
             <div class="col-md-3">
                 <label class="label-custom form-label mb-2" for="search">Search Keywords</label>
-                <input type="text" id="search" name="search" class="form-control input-custom" value="@search" placeholder="Device Name, MAC, Scanner" />
+                <input type="text" id="search" name="search" class="form-control input-custom" value="@search" placeholder="Device Name, MAC, Scanner ID" />
             </div>
             
             <div class="col-md-3">
@@ -262,7 +279,7 @@
 
                             string statusClass = alert.IsResolved ? "badge-status-resolved" : "badge-status-active";
                             string statusText = alert.IsResolved ? "Resolved" : "Active";
-                            string scannerText = alert.Scanner?.ScannerName ?? alert.ScannerId ?? "-";
+                            string scannerText = alert.ScannerId ?? "-";
                             string deviceName = alert.Device?.DeviceName ?? alert.Device?.MacAddress ?? "-";
                             string relativeTime = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(alert.AlertTime);
                             string lastSeenStr = alert.Device?.LastSeen.HasValue == true 
@@ -298,27 +315,105 @@
     <!-- Pagination -->
     @if (totalPages > 1)
     {
-        <nav aria-label="Alert logs pagination">
+        var pageElements = new List<string>();
+        if (totalPages <= 7)
+        {
+            for (int i = 1; i <= totalPages; i++)
+            {
+                pageElements.Add(i.ToString());
+            }
+        }
+        else
+        {
+            if (currentPage <= 4)
+            {
+                pageElements.Add("1");
+                pageElements.Add("2");
+                pageElements.Add("3");
+                pageElements.Add("4");
+                pageElements.Add("5");
+                pageElements.Add("6");
+                pageElements.Add("...");
+                pageElements.Add(totalPages.ToString());
+            }
+            else if (currentPage >= totalPages - 3)
+            {
+                pageElements.Add("1");
+                pageElements.Add("...");
+                pageElements.Add((totalPages - 5).ToString());
+                pageElements.Add((totalPages - 4).ToString());
+                pageElements.Add((totalPages - 3).ToString());
+                pageElements.Add((totalPages - 2).ToString());
+                pageElements.Add((totalPages - 1).ToString());
+                pageElements.Add(totalPages.ToString());
+            }
+            else
+            {
+                pageElements.Add("1");
+                pageElements.Add("...");
+                pageElements.Add((currentPage - 2).ToString());
+                pageElements.Add((currentPage - 1).ToString());
+                pageElements.Add(currentPage.ToString());
+                pageElements.Add((currentPage + 1).ToString());
+                pageElements.Add((currentPage + 2).ToString());
+                pageElements.Add("...");
+                pageElements.Add(totalPages.ToString());
+            }
+        }
+
+        <!-- Desktop Pagination -->
+        <nav aria-label="Alert logs pagination" class="d-none d-sm-block">
             <ul class="pagination pagination-custom justify-content-center">
                 <!-- Previous Button -->
-                <li class="page-item @(currentPage == 1 ? "disabled" : "")">
+                <li class="page-item page-item-prev-next @(currentPage == 1 ? "disabled" : "")">
                     <a class="page-link" href="?search=@search&alertType=@currentAlertType&severity=@currentSeverity&status=@currentStatus&page=@(currentPage - 1)" aria-label="Previous">
-                        &laquo; Prev
+                        &lt;
                     </a>
                 </li>
 
                 <!-- Page numbers -->
-                @for (int i = 1; i <= totalPages; i++)
+                @foreach (var elem in pageElements)
                 {
-                    <li class="page-item @(currentPage == i ? "active" : "")">
-                        <a class="page-link" href="?search=@search&alertType=@currentAlertType&severity=@currentSeverity&status=@currentStatus&page=@i">@i</a>
-                    </li>
+                    if (elem == "...")
+                    {
+                        <li class="page-item disabled"><span class="page-link" style="background-color: transparent !important; border: none !important;">...</span></li>
+                    }
+                    else
+                    {
+                        int pVal = int.Parse(elem);
+                        <li class="page-item @(currentPage == pVal ? "active" : "")">
+                            <a class="page-link" href="?search=@search&alertType=@currentAlertType&severity=@currentSeverity&status=@currentStatus&page=@pVal">@pVal</a>
+                        </li>
+                    }
                 }
 
                 <!-- Next Button -->
-                <li class="page-item @(currentPage == totalPages ? "disabled" : "")">
+                <li class="page-item page-item-prev-next @(currentPage == totalPages ? "disabled" : "")">
                     <a class="page-link" href="?search=@search&alertType=@currentAlertType&severity=@currentSeverity&status=@currentStatus&page=@(currentPage + 1)" aria-label="Next">
-                        Next &raquo;
+                        &gt;
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Mobile Pagination -->
+        <nav aria-label="Alert logs pagination mobile" class="d-block d-sm-none">
+            <ul class="pagination pagination-custom justify-content-center align-items-center">
+                <!-- Previous Button -->
+                <li class="page-item page-item-prev-next @(currentPage == 1 ? "disabled" : "")">
+                    <a class="page-link" href="?search=@search&alertType=@currentAlertType&severity=@currentSeverity&status=@currentStatus&page=@(currentPage - 1)" aria-label="Previous">
+                        &lt;
+                    </a>
+                </li>
+
+                <li class="px-3 text-muted" style="font-size: 0.9rem; font-weight: 500;">
+                    @currentPage / @totalPages
+                </li>
+
+                <!-- Next Button -->
+                <li class="page-item page-item-prev-next @(currentPage == totalPages ? "disabled" : "")">
+                    <a class="page-link" href="?search=@search&alertType=@currentAlertType&severity=@currentSeverity&status=@currentStatus&page=@(currentPage + 1)" aria-label="Next">
+                        &gt;
                     </a>
                 </li>
             </ul>

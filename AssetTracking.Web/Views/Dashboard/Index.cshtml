@@ -415,6 +415,7 @@
                         <th>Device Name</th>
                         <th>Status</th>
                         <th>RSSI Strength</th>
+                        <th>Distance</th>
                         <th>Battery</th>
                         <th>Local Coordinates</th>
                         <th>Motion</th>
@@ -438,6 +439,8 @@
         // Core State
         const devices = {};
         const devicesHistory = {};
+        let lastTelemetryTime = Date.now();
+        let currentConnectionState = "Connecting";
 
         // Setup connection
         const connection = new signalR.HubConnectionBuilder()
@@ -449,29 +452,50 @@
             document.getElementById("connection-status").innerText = status;
             const dot = document.getElementById("connection-indicator");
             dot.className = "status-dot " + styleClass;
+
+            if (status === "Connected") {
+                currentConnectionState = "Connected";
+            } else if (status === "Reconnecting" || status === "Connecting...") {
+                currentConnectionState = "Reconnecting";
+            } else if (status === "Disconnected") {
+                currentConnectionState = "Disconnected";
+                console.log("SignalR disconnected. Reloading page...");
+                location.reload();
+            }
         }
 
         connection.onreconnecting((error) => {
             updateConnectionUI("Reconnecting", "status-connecting");
+            currentConnectionState = "Reconnecting";
         });
 
         connection.onreconnected((connectionId) => {
             updateConnectionUI("Connected", "status-connected");
+            currentConnectionState = "Connected";
+            lastTelemetryTime = Date.now();
         });
 
         connection.onclose((error) => {
             updateConnectionUI("Disconnected", "status-disconnected");
+            currentConnectionState = "Disconnected";
+            console.log("SignalR disconnected. Reloading page...");
+            location.reload();
         });
 
         async function startSignalR() {
             try {
                 updateConnectionUI("Connecting...", "status-connecting");
+                currentConnectionState = "Connecting";
                 await connection.start();
                 updateConnectionUI("Connected", "status-connected");
+                currentConnectionState = "Connected";
+                lastTelemetryTime = Date.now();
             } catch (err) {
                 console.error("SignalR Connection Error:", err);
                 updateConnectionUI("Disconnected", "status-disconnected");
-                setTimeout(startSignalR, 5000);
+                currentConnectionState = "Disconnected";
+                console.log("Failed to connect. Reloading page...");
+                location.reload();
             }
         }
 
@@ -483,6 +507,7 @@
             if (telemetry.macAddress && telemetry.macAddress.startsWith("00:11:22:33:44")) {
                 return;
             }
+            lastTelemetryTime = Date.now();
             // Save state
             telemetry.parsedReceiveTime = new Date(telemetry.receiveTime);
             
@@ -608,13 +633,21 @@
             const statusClass = isOnline ? "badge-online-custom" : "badge-offline-custom";
             
             const batteryClass = telemetry.batteryLevel < 20 ? "text-danger-custom" : (telemetry.batteryLevel < 50 ? "text-warning-custom" : "text-success-custom");
-            const motionBadge = telemetry.isMoving ? `<span class="badge badge-moving-custom">Moving</span>` : `<span class="badge badge-static-custom">Static</span>`;
+            const motionBadge = telemetry.isMoving ? `<span class="badge badge-moving-custom">Moving</span>` : `<span class="badge badge-static-custom">Stationary</span>`;
             
             let rssiClass = "rssi-weak";
             if (telemetry.rssi > -60) rssiClass = "rssi-strong";
             else if (telemetry.rssi > -80) rssiClass = "rssi-medium";
             
             const formattedTime = getRelativeTimeStr(telemetry.receiveTime);
+
+            let distanceText = "-";
+            if (isOnline && telemetry.rssi && telemetry.rssi !== 0) {
+                const txPower = -59;
+                const pathLossExponent = 2.5;
+                const distance = Math.pow(10, (txPower - telemetry.rssi) / (10.0 * pathLossExponent));
+                distanceText = distance.toFixed(1) + " m";
+            }
 
             const innerHTML = `
                 <td class="mac-address">${telemetry.macAddress}</td>
@@ -623,6 +656,7 @@
                 <td>
                     <span class="rssi-value text-white">${telemetry.rssi} dBm</span>
                 </td>
+                <td>${distanceText}</td>
                 <td>
                     <span class="battery-value" style="color: #10B981; font-weight: 500;">${telemetry.batteryLevel}%</span>
                 </td>
@@ -682,5 +716,21 @@
             document.getElementById("count-moving").innerText = moving;
             document.getElementById("count-low-battery").innerText = lowBattery;
         }
+
+        // Automatic page refresh check every 30 seconds
+        setInterval(() => {
+            if (currentConnectionState !== "Connected") {
+                console.log("30s check: SignalR disconnected. Reloading page...");
+                location.reload();
+            }
+        }, 30000);
+
+        // Check for telemetry inactivity (no packets received for 30s)
+        setInterval(() => {
+            if (Date.now() - lastTelemetryTime >= 30000) {
+                console.log("No telemetry received for 30 seconds. Reloading page...");
+                location.reload();
+            }
+        }, 1000);
     </script>
 }

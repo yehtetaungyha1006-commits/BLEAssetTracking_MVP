@@ -61,15 +61,23 @@ namespace AssetTracking.Web.Controllers
                     status = "Offline";
                 }
 
+                double? estimatedDistance = null;
+                if (status != "Offline" && selectedTelemetry != null)
+                {
+                    estimatedDistance = AssetTracking.Web.Helpers.DistanceHelper.EstimateDistanceMeters(selectedTelemetry.Rssi);
+                }
+
                 return new {
                     deviceName = b.DeviceName ?? "Unnamed Beacon",
                     macAddress = b.MacAddress,
                     status = status,
-                    scannerName = selectedTelemetry?.Scanner?.ScannerName ?? "-",
+                    isMoving = selectedTelemetry?.IsMoving ?? false,
+                    scannerId = selectedTelemetry?.ScannerId ?? "-",
                     building = selectedTelemetry?.Scanner?.Building ?? "-",
                     floor = selectedTelemetry?.Scanner?.Floor ?? "-",
                     location = selectedTelemetry?.Scanner?.Location ?? "-",
                     rssi = selectedTelemetry?.Rssi ?? 0,
+                    estimatedDistance = estimatedDistance,
                     battery = selectedTelemetry?.BatteryLevel ?? 0,
                     lastSeen = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(b.LastSeen)
                 };

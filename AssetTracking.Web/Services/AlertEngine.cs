@@ -202,31 +202,67 @@ namespace AssetTracking.Web.Services
                 }
 
                 // 4. Beacon Location Changed Check
-                var prevTelemetry = await _context.BeaconTelemetries
-                    .Where(t => t.DeviceId == device.DeviceId && t.TelemetryId != telemetry.TelemetryId)
-                    .OrderByDescending(t => t.ReceiveTime)
+                var cutoff30 = DateTime.Now.AddSeconds(-30);
+                var recentTelemetries = await _context.BeaconTelemetries
+                    .Where(t => t.DeviceId == device.DeviceId && t.ReceiveTime >= cutoff30)
+                    .ToListAsync();
+
+                // Determine the selected Scanner using the strongest RSSI logic
+                var selectedTelemetry = recentTelemetries.OrderByDescending(t => t.Rssi).FirstOrDefault();
+                string? newScannerId = selectedTelemetry?.ScannerId ?? telemetry.ScannerId;
+
+                // Track the last confirmed Scanner for each Beacon
+                string? previousScannerId = null;
+                var lastAlert = await _context.AlertLogs
+                    .Where(a => a.DeviceId == device.DeviceId && a.AlertType == "Beacon Location Changed")
+                    .OrderByDescending(a => a.AlertTime)
                     .FirstOrDefaultAsync();
 
-                if (prevTelemetry != null && prevTelemetry.ScannerId != null && telemetry.ScannerId != null && prevTelemetry.ScannerId != telemetry.ScannerId)
+                if (lastAlert != null)
                 {
-                    var oldScanner = await _context.Scanners.FindAsync(prevTelemetry.ScannerId);
-                    var newScanner = await _context.Scanners.FindAsync(telemetry.ScannerId);
+                    previousScannerId = lastAlert.ScannerId;
+                }
+                else
+                {
+                    var prevTelemetry = await _context.BeaconTelemetries
+                        .Where(t => t.DeviceId == device.DeviceId && t.TelemetryId != telemetry.TelemetryId)
+                        .OrderByDescending(t => t.ReceiveTime)
+                        .FirstOrDefaultAsync();
+                    previousScannerId = prevTelemetry?.ScannerId;
+                }
 
-                    string oldName = oldScanner?.ScannerName ?? prevTelemetry.ScannerId;
-                    string newName = newScanner?.ScannerName ?? telemetry.ScannerId;
+                if (previousScannerId != null && newScannerId != null && newScannerId != previousScannerId)
+                {
+                    string oldName = previousScannerId;
+                    string newName = newScannerId;
 
-                    var locationAlert = new AlertLog
+                    // Duplicate protection: check if same transition occurred in the last 1 minute
+                    var cutoff1Min = DateTime.Now.AddMinutes(-1);
+                    string msgSubstring = $"location changed from {oldName} to {newName}";
+                    var duplicateExists = await _context.AlertLogs
+                        .AnyAsync(a => a.DeviceId == device.DeviceId 
+                                    && a.AlertType == "Beacon Location Changed" 
+                                    && a.ScannerId == newScannerId
+                                    && a.AlertTime >= cutoff1Min
+                                    && a.AlertMessage.Contains(msgSubstring));
+
+                    if (!duplicateExists)
                     {
-                        DeviceId = device.DeviceId,
-                        ScannerId = telemetry.ScannerId,
-                        AlertType = "Beacon Location Changed",
-                        AlertMessage = $"Device {device.DeviceName} ({device.MacAddress}) location changed from {oldName} to {newName}",
-                        Severity = "Info",
-                        AlertTime = DateTime.Now,
-                        IsResolved = true,
-                        ResolvedAt = DateTime.Now
-                    };
-                    _context.AlertLogs.Add(locationAlert);
+                        var locationAlert = new AlertLog
+                        {
+                            DeviceId = device.DeviceId,
+                            ScannerId = newScannerId,
+                            AlertType = "Beacon Location Changed",
+                            AlertMessage = $"Device {device.DeviceName} ({device.MacAddress}) location changed from {oldName} to {newName}",
+                            Severity = "Info",
+                            AlertTime = DateTime.Now,
+                            IsResolved = true,
+                            ResolvedAt = DateTime.Now
+                        };
+                        _context.AlertLogs.Add(locationAlert);
+
+                        _logger.LogInformation("Location changed: {DeviceName} from {OldScanner} to {NewScanner}", device.DeviceName, oldName, newName);
+                    }
                 }
 
                 await _context.SaveChangesAsync();

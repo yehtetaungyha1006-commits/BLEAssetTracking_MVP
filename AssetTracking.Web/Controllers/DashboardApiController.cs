@@ -81,11 +81,18 @@ namespace AssetTracking.Web.Controllers
                         }
                     }
 
+                    double? estimatedDistance = null;
+                    if (status != "Offline" && selectedTelemetry != null)
+                    {
+                        estimatedDistance = AssetTracking.Web.Helpers.DistanceHelper.EstimateDistanceMeters(selectedTelemetry.Rssi);
+                    }
+
                     return new
                     {
                         macAddress = device.MacAddress,
                         deviceName = device.DeviceName,
                         rssi = selectedTelemetry?.Rssi ?? 0,
+                        estimatedDistance = estimatedDistance,
                         batteryLevel = selectedTelemetry?.BatteryLevel ?? 0,
                         xAxis = selectedTelemetry?.XAxis ?? 0.0,
                         yAxis = selectedTelemetry?.YAxis ?? 0.0,
@@ -94,8 +101,7 @@ namespace AssetTracking.Web.Controllers
                         status = status,
                         lastSeen = device.LastSeen.HasValue ? AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(device.LastSeen.Value) : (DateTime?)null,
                         lastSeenFormatted = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(device.LastSeen),
-                        scannerId = selectedTelemetry?.Scanner?.ScannerId,
-                        scannerName = selectedTelemetry?.Scanner?.ScannerName,
+                        scannerId = selectedTelemetry?.ScannerId,
                         building = selectedTelemetry?.Scanner?.Building,
                         floor = selectedTelemetry?.Scanner?.Floor,
                         location = selectedTelemetry?.Scanner?.Location

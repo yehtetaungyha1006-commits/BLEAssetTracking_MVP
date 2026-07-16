@@ -28,14 +28,13 @@ namespace AssetTracking.Web.Controllers
                 .Include(a => a.Scanner)
                 .AsNoTracking();
 
-            // Search by DeviceName, MAC Address or ScannerName/Id
+            // Search by DeviceName, MAC Address or ScannerId
             if (!string.IsNullOrWhiteSpace(search))
             {
                 var lowerSearch = search.ToLower();
                 query = query.Where(a => 
                     (a.Device != null && a.Device.DeviceName != null && a.Device.DeviceName.ToLower().Contains(lowerSearch)) ||
                     (a.Device != null && a.Device.MacAddress.ToLower().Contains(lowerSearch)) ||
-                    (a.Scanner != null && a.Scanner.ScannerName.ToLower().Contains(lowerSearch)) ||
                     (a.ScannerId != null && a.ScannerId.ToLower().Contains(lowerSearch))
                 );
             }
@@ -59,8 +58,8 @@ namespace AssetTracking.Web.Controllers
                 query = query.Where(a => a.IsResolved == isResolved);
             }
 
-            // Order by AlertTime descending
-            query = query.OrderByDescending(a => a.AlertTime);
+            // Order by AlertTime descending, then by AlertId descending
+            query = query.OrderByDescending(a => a.AlertTime).ThenByDescending(a => a.AlertId);
 
             // Pagination calculations
             int totalItems = await query.CountAsync();

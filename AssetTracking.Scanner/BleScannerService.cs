@@ -31,11 +31,18 @@ namespace AssetTracking.Scanner
             public DateTimeOffset LastSeen { get; set; }
             public int Major { get; set; }
             public int Minor { get; set; }
+            public double XAxis { get; set; }
+            public double YAxis { get; set; }
+            public double ZAxis { get; set; }
+            public bool IsMoving { get; set; }
+            public double LastMagnitude { get; set; }
+            public bool HasMotionData { get; set; }
         }
 
         private readonly System.Collections.Generic.Dictionary<string, BeaconState> _detectedBeacons = new();
         private readonly object _stateLock = new();
         private readonly IConfiguration _configuration;
+        private bool _loggedNoMotion = false;
 
         private int TelemetryIntervalSeconds => _configuration.GetValue<int?>("ScannerSettings:TelemetryIntervalSeconds") ?? 2;
         private int OfflineTimeoutSeconds => _configuration.GetValue<int?>("ScannerSettings:OfflineTimeoutSeconds") ?? 30;
@@ -99,14 +106,30 @@ namespace AssetTracking.Scanner
                             LatestRssi = kvp.Value.LatestRssi,
                             LastSeen = kvp.Value.LastSeen,
                             Major = kvp.Value.Major,
-                            Minor = kvp.Value.Minor
+                            Minor = kvp.Value.Minor,
+                            XAxis = kvp.Value.XAxis,
+                            YAxis = kvp.Value.YAxis,
+                            ZAxis = kvp.Value.ZAxis,
+                            IsMoving = kvp.Value.IsMoving,
+                            HasMotionData = kvp.Value.HasMotionData
                         });
                     }
                 }
 
                 foreach (var beacon in beaconsToReport)
                 {
-                    await SendTelemetryAsync(beacon.MacAddress, beacon.DeviceName, beacon.LatestRssi, beacon.Major, beacon.Minor, stoppingToken);
+                    await SendTelemetryAsync(
+                        beacon.MacAddress, 
+                        beacon.DeviceName, 
+                        beacon.LatestRssi, 
+                        beacon.Major, 
+                        beacon.Minor, 
+                        beacon.XAxis, 
+                        beacon.YAxis, 
+                        beacon.ZAxis, 
+                        beacon.IsMoving, 
+                        beacon.HasMotionData, 
+                        stoppingToken);
                 }
 
                 await Task.Delay(TelemetryIntervalSeconds * 1000, stoppingToken);
@@ -115,9 +138,130 @@ namespace AssetTracking.Scanner
 
         private void OnAdvertisementReceived(BluetoothLEAdvertisementWatcher sender, BluetoothLEAdvertisementReceivedEventArgs args)
         {
+            // Try parsing Minew E7 Sensor Frame (0xA1)
+            bool foundE7Frame = false;
+            byte[]? e7Bytes = null;
+
             foreach (var m in args.Advertisement.ManufacturerData)
             {
-                // Apple iBeacon company ID is 0x004C, total iBeacon advertising packet length inside Manufacturer Data is 23 bytes
+                if (m.Data.Length >= 15)
+                {
+                    try
+                    {
+                        byte[] bytes = new byte[m.Data.Length];
+                        using (var reader = DataReader.FromBuffer(m.Data))
+                        {
+                            reader.ReadBytes(bytes);
+                        }
+                        if (bytes[0] == 0xA1 && bytes[1] == 0x03)
+                        {
+                            e7Bytes = bytes;
+                            foundE7Frame = true;
+                            break;
+                        }
+                    }
+                    catch
+                    {
+                        // Suppress
+                    }
+                }
+            }
+
+            if (!foundE7Frame)
+            {
+                foreach (var section in args.Advertisement.DataSections)
+                {
+                    if (section.Data.Length >= 17)
+                    {
+                        try
+                        {
+                            byte[] bytes = new byte[section.Data.Length];
+                            using (var reader = DataReader.FromBuffer(section.Data))
+                            {
+                                reader.ReadBytes(bytes);
+                            }
+                            if (bytes[0] == 0xE1 && bytes[1] == 0xFF && bytes[2] == 0xA1 && bytes[3] == 0x03)
+                            {
+                                // Strip the 2-byte UUID prefix
+                                e7Bytes = new byte[bytes.Length - 2];
+                                Array.Copy(bytes, 2, e7Bytes, 0, e7Bytes.Length);
+                                foundE7Frame = true;
+                                break;
+                            }
+                        }
+                        catch
+                        {
+                            // Suppress
+                        }
+                    }
+                }
+            }
+
+            if (foundE7Frame && e7Bytes != null)
+            {
+                try
+                {
+                    short rawX = (short)((e7Bytes[3] << 8) | e7Bytes[4]);
+                    short rawY = (short)((e7Bytes[5] << 8) | e7Bytes[6]);
+                    short rawZ = (short)((e7Bytes[7] << 8) | e7Bytes[8]);
+
+                    double xAxis = rawX / 256.0;
+                    double yAxis = rawY / 256.0;
+                    double zAxis = rawZ / 256.0;
+
+                    string payloadMac = string.Format("{0:X2}:{1:X2}:{2:X2}:{3:X2}:{4:X2}:{5:X2}",
+                        e7Bytes[14],
+                        e7Bytes[13],
+                        e7Bytes[12],
+                        e7Bytes[11],
+                        e7Bytes[10],
+                        e7Bytes[9]);
+
+                    double magnitude = Math.Sqrt(xAxis * xAxis + yAxis * yAxis + zAxis * zAxis);
+                    double threshold = _configuration.GetValue<double?>("ScannerSettings:MotionThreshold") ?? 0.15;
+
+                    lock (_stateLock)
+                    {
+                        if (_detectedBeacons.TryGetValue(payloadMac, out var state))
+                        {
+                            double diff = Math.Abs(magnitude - state.LastMagnitude);
+                            state.IsMoving = diff > threshold;
+                            state.LastMagnitude = magnitude;
+                            state.XAxis = xAxis;
+                            state.YAxis = yAxis;
+                            state.ZAxis = zAxis;
+                            state.HasMotionData = true;
+                            state.LastSeen = DateTimeOffset.Now;
+                        }
+                        else
+                        {
+                            _detectedBeacons[payloadMac] = new BeaconState
+                            {
+                                MacAddress = payloadMac,
+                                DeviceName = $"Minew E7 ({payloadMac})",
+                                LatestRssi = args.RawSignalStrengthInDBm,
+                                LastSeen = DateTimeOffset.Now,
+                                Major = 0,
+                                Minor = 0,
+                                XAxis = xAxis,
+                                YAxis = yAxis,
+                                ZAxis = zAxis,
+                                IsMoving = false,
+                                LastMagnitude = magnitude,
+                                HasMotionData = true
+                            };
+                        }
+                    }
+                }
+                catch
+                {
+                    // Suppress
+                }
+            }
+
+            // Normal iBeacon processing
+            foreach (var m in args.Advertisement.ManufacturerData)
+            {
                 if (m.CompanyId == 0x004C && m.Data.Length == 23)
                 {
                     try
@@ -126,14 +270,11 @@ namespace AssetTracking.Scanner
                         byte[] dataBytes = new byte[m.Data.Length];
                         reader.ReadBytes(dataBytes);
 
-                        // iBeacon prefix indicator: 0x02, 0x15
                         if (dataBytes[0] == 0x02 && dataBytes[1] == 0x15)
                         {
-                            // Extract Major & Minor (Big Endian)
                             ushort major = (ushort)((dataBytes[18] << 8) | dataBytes[19]);
                             ushort minor = (ushort)((dataBytes[20] << 8) | dataBytes[21]);
 
-                            // Format real MAC address from args.BluetoothAddress
                             ulong address = args.BluetoothAddress;
                             string realMac = string.Format("{0:X2}:{1:X2}:{2:X2}:{3:X2}:{4:X2}:{5:X2}",
                                 (byte)((address >> 40) & 0xFF),
@@ -156,14 +297,14 @@ namespace AssetTracking.Scanner
                             {
                                 macAddress = realMac;
                             }
-                             string deviceName = $"iBeacon ({major}-{minor})";
+                            string deviceName = $"iBeacon ({major}-{minor})";
 
-                             short rssi = args.RawSignalStrengthInDBm;
-                             if (rssi < MinimumRssi)
-                             {
-                                 continue;
-                             }
- 
+                            short rssi = args.RawSignalStrengthInDBm;
+                            if (rssi < MinimumRssi)
+                            {
+                                continue;
+                            }
+
                             lock (_stateLock)
                             {
                                 if (_detectedBeacons.TryGetValue(macAddress, out var state))
@@ -190,16 +331,36 @@ namespace AssetTracking.Scanner
                     }
                     catch
                     {
-                        // Suppress error logs to keep console clean as requested
+                        // Suppress
                     }
                 }
             }
         }
 
-        private async Task SendTelemetryAsync(string macAddress, string deviceName, short rssi, int major, int minor, CancellationToken stoppingToken)
+        private async Task SendTelemetryAsync(
+            string macAddress, 
+            string deviceName, 
+            short rssi, 
+            int major, 
+            int minor, 
+            double xAxis, 
+            double yAxis, 
+            double zAxis, 
+            bool isMoving, 
+            bool hasMotionData, 
+            CancellationToken stoppingToken)
         {
             var receiveTime = DateTime.Now;
             var scannerId = Environment.MachineName;
+
+            if (!hasMotionData)
+            {
+                if (!_loggedNoMotion)
+                {
+                    _logger.LogInformation("Motion data not available in current E7 advertising frame.");
+                    _loggedNoMotion = true;
+                }
+            }
 
             var telemetry = new BeaconTelemetryDto
             {
@@ -207,10 +368,10 @@ namespace AssetTracking.Scanner
                 DeviceName = deviceName,
                 Rssi = rssi,
                 BatteryLevel = 100,
-                XAxis = 0.0,
-                YAxis = 0.0,
-                ZAxis = 0.0,
-                IsMoving = false,
+                XAxis = xAxis,
+                YAxis = yAxis,
+                ZAxis = zAxis,
+                IsMoving = isMoving,
                 ReceiveTime = receiveTime,
                 ScannerId = scannerId,
                 Major = major,

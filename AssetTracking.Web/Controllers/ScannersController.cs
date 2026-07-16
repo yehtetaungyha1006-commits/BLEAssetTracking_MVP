@@ -50,7 +50,7 @@ namespace AssetTracking.Web.Controllers
         // POST: Scanners/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(string id, [Bind("ScannerId,ScannerName,Building,Floor,Location")] ScannerDevice scanner)
+        public async Task<IActionResult> Edit(string id, [Bind("ScannerId,Building,Floor,Location")] ScannerDevice scanner)
         {
             if (id != scanner.ScannerId)
             {
@@ -58,10 +58,6 @@ namespace AssetTracking.Web.Controllers
             }
 
             // Perform manual validations on non-empty fields
-            if (string.IsNullOrWhiteSpace(scanner.ScannerName))
-            {
-                ModelState.AddModelError(nameof(scanner.ScannerName), "Scanner Name is required.");
-            }
             if (string.IsNullOrWhiteSpace(scanner.Building))
             {
                 ModelState.AddModelError(nameof(scanner.Building), "Building is required.");
@@ -85,8 +81,7 @@ namespace AssetTracking.Web.Controllers
                         return NotFound();
                     }
 
-                    // Update only ScannerName, Building, Floor, Location
-                    existingScanner.ScannerName = scanner.ScannerName;
+                    // Update only Building, Floor, Location
                     existingScanner.Building = scanner.Building;
                     existingScanner.Floor = scanner.Floor;
                     existingScanner.Location = scanner.Location;

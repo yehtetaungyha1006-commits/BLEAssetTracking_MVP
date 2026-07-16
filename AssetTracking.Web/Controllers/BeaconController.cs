@@ -124,7 +124,7 @@ namespace AssetTracking.Web.Controllers
                 telemetryDto.DeviceName = device.DeviceName ?? "Registered Beacon";
                 if (scanner != null)
                 {
-                    telemetryDto.ScannerName = scanner.ScannerName;
+                    telemetryDto.ScannerName = scanner.ScannerId;
                     telemetryDto.ScannerBuilding = scanner.Building;
                     telemetryDto.ScannerFloor = scanner.Floor;
                     telemetryDto.ScannerLocation = scanner.Location;

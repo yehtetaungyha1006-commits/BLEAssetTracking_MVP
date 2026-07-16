@@ -267,6 +267,7 @@
                                 <th>Floor</th>
                                 <th>Current Location</th>
                                 <th>RSSI</th>
+                                <th>Distance</th>
                                 <th>Battery</th>
                                 <th>Status</th>
                                 <th>Last Seen</th>
@@ -436,10 +437,15 @@
                         batteryColor = 'bg-warning';
                     }
 
-                    const scannerText = device.scannerName || '-';
+                    const scannerText = device.scannerId || '-';
                     const buildingText = device.building || '-';
                     const floorText = device.floor || '-';
                     const locationText = device.location || '-';
+
+                    let distanceText = '-';
+                    if (device.status !== 'Offline' && device.estimatedDistance !== null && device.estimatedDistance !== undefined) {
+                        distanceText = device.estimatedDistance.toFixed(1) + ' m';
+                    }
 
                     row.innerHTML = `
                         <td class="mac-addr">${device.macAddress}</td>
@@ -449,6 +455,7 @@
                         <td>${floorText}</td>
                         <td>${locationText}</td>
                         <td class="rssi-value text-white">${device.rssi ? `${device.rssi} dBm` : '-'}</td>
+                        <td>${distanceText}</td>
                         <td>
                             <span style="color: #10B981; font-weight: 500;">${device.batteryLevel}%</span>
                         </td>

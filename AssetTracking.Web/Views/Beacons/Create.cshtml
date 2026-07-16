@@ -3,50 +3,233 @@
     ViewData["Title"] = "Add Beacon";
 }
 
-<div class="edit-scanner-container container">
-    <div class="edit-header mb-4">
+<style>
+    .create-beacon-page {
+        padding: 2rem 1rem;
+        max-width: 540px;
+        margin: 0 auto;
+    }
+    
+    .beacon-title-container {
+        margin-bottom: 1.5rem;
+    }
+
+    .beacon-title-container h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        background: linear-gradient(to right, #ffffff, #cbd5e1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.25rem;
+    }
+
+    .beacon-title-container p {
+        color: #94a3b8;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .beacon-form-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+    }
+
+    .beacon-form-body {
+        padding: 1.5rem;
+    }
+
+    .beacon-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+    }
+
+    .beacon-form-grid .full-width {
+        grid-column: span 2;
+    }
+
+    .label-custom {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .input-custom {
+        background-color: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.95rem;
+        color: #ffffff !important;
+        transition: all 0.2s ease;
+        width: 100%;
+    }
+
+    .input-custom:focus {
+        border-color: rgba(255, 255, 255, 0.25) !important;
+        background-color: rgba(255, 255, 255, 0.06) !important;
+        outline: none;
+        box-shadow: none;
+    }
+
+    .validation-error {
+        font-size: 0.85rem;
+        color: #f87171;
+        margin-top: 0.35rem;
+        font-weight: 500;
+        display: block;
+    }
+
+    .form-action-footer {
+        background-color: rgba(0, 0, 0, 0.15);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .btn-primary-custom {
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        color: #ffffff !important;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+        text-decoration: none;
+    }
+
+    .btn-primary-custom:hover {
+        background: linear-gradient(135deg, #4338ca 0%, #4f46e5 100%);
+    }
+
+    .btn-primary-custom:active {
+        transform: scale(0.98);
+    }
+
+    .btn-cancel-custom {
+        background-color: transparent;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 0.5rem 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+    }
+
+    .btn-cancel-custom:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+
+    .btn-cancel-custom:active {
+        transform: scale(0.98);
+    }
+
+    @@media (max-width: 576px) {
+        .create-beacon-page {
+            padding: 1.5rem 1rem;
+        }
+
+        .beacon-form-grid {
+            grid-template-columns: 1fr;
+        }
+
+        .beacon-form-grid .full-width {
+            grid-column: span 1;
+        }
+
+        .form-action-footer {
+            flex-direction: column-reverse;
+            gap: 0.6rem;
+            align-items: stretch !important;
+            padding: 1rem;
+        }
+
+        .btn-primary-custom,
+        .btn-cancel-custom {
+            width: 100% !important;
+            height: 40px;
+        }
+    }
+</style>
+
+<div class="create-beacon-page">
+    <!-- Page Header -->
+    <div class="beacon-title-container text-start">
         <h2>Add Beacon Device</h2>
-        <p class="text-muted">Register a new physical BLE beacon in the asset tracking database.</p>
+        <p>Register a new BLE beacon in the tracking system.</p>
     </div>
 
-    <div class="card-form">
+    <!-- Form Card -->
+    <div class="beacon-form-card">
         <form asp-action="Create" method="post">
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="font-size: 0.9rem; font-weight: 500;"></div>
+            <div class="beacon-form-body">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="font-size: 0.9rem; font-weight: 500;"></div>
 
-            <div class="form-group-custom">
-                <label class="label-custom" asp-for="DeviceName">Device Name</label>
-                <input asp-for="DeviceName" class="form-control input-custom" placeholder="e.g. Forklift Beacon 04" />
-                <span asp-validation-for="DeviceName" class="validation-error"></span>
-            </div>
+                <div class="beacon-form-grid">
+                    <div class="full-width">
+                        <div class="form-group-custom">
+                            <label class="label-custom" asp-for="DeviceName">Device Name</label>
+                            <input asp-for="DeviceName" class="form-control input-custom" placeholder="e.g. Forklift Beacon 04" />
+                            <span asp-validation-for="DeviceName" class="validation-error"></span>
+                        </div>
+                    </div>
 
-            <div class="form-group-custom">
-                <label class="label-custom" asp-for="MacAddress">MAC Address</label>
-                <input asp-for="MacAddress" class="form-control input-custom" placeholder="e.g. AA:BB:CC:DD:EE:FF" />
-                <span asp-validation-for="MacAddress" class="validation-error"></span>
-            </div>
+                    <div class="full-width">
+                        <div class="form-group-custom">
+                            <label class="label-custom" asp-for="MacAddress">MAC Address</label>
+                            <input asp-for="MacAddress" class="form-control input-custom" placeholder="e.g. AA:BB:CC:DD:EE:FF" />
+                            <span asp-validation-for="MacAddress" class="validation-error"></span>
+                        </div>
+                    </div>
 
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group-custom">
-                        <label class="label-custom" asp-for="Major">Major</label>
-                        <input asp-for="Major" type="number" class="form-control input-custom" placeholder="e.g. 100" min="0" />
-                        <span asp-validation-for="Major" class="validation-error"></span>
+                    <div>
+                        <div class="form-group-custom">
+                            <label class="label-custom" asp-for="Major">Major</label>
+                            <input asp-for="Major" type="number" class="form-control input-custom" placeholder="e.g. 100" min="0" />
+                            <span asp-validation-for="Major" class="validation-error"></span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="form-group-custom">
+                            <label class="label-custom" asp-for="Minor">Minor</label>
+                            <input asp-for="Minor" type="number" class="form-control input-custom" placeholder="e.g. 1" min="0" />
+                            <span asp-validation-for="Minor" class="validation-error"></span>
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-group-custom">
-                        <label class="label-custom" asp-for="Minor">Minor</label>
-                        <input asp-for="Minor" type="number" class="form-control input-custom" placeholder="e.g. 1" min="0" />
-                        <span asp-validation-for="Minor" class="validation-error"></span>
-                    </div>
-                </div>
             </div>
 
-            <div class="d-flex justify-content-end gap-3 mt-4">
-                <a asp-action="Index" class="btn btn-outline-light px-4 py-2">
+            <!-- Footer Area -->
+            <div class="form-action-footer">
+                <a asp-action="Index" class="btn-cancel-custom">
                     Cancel
                 </a>
-                <button type="submit" class="btn btn-primary px-4 py-2">
+                <button type="submit" class="btn-primary-custom">
                     Create Beacon
                 </button>
             </div>

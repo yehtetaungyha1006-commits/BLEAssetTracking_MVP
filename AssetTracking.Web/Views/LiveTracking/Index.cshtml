@@ -233,13 +233,14 @@
                         <th>Floor</th>
                         <th>Location</th>
                         <th>RSSI</th>
+                        <th>Distance</th>
                         <th>Battery</th>
                         <th>Last Seen</th>
                     </tr>
                 </thead>
                 <tbody id="liveTrackingBody">
                     <tr>
-                        <td colspan="10" class="text-center py-5 text-muted">
+                        <td colspan="11" class="text-center py-5 text-muted">
                             <div class="spinner-border spinner-border-sm text-primary mb-2" role="status"></div>
                             <span class="d-block">Loading real-time beacon metrics...</span>
                         </td>
@@ -247,6 +248,9 @@
                 </tbody>
             </table>
         </div>
+    </div>
+    <div class="mt-3 text-muted" style="font-size: 0.85rem;">
+        Distance is estimated from BLE RSSI and may vary due to walls, people, equipment, and signal interference.
     </div>
 </div>
 
@@ -335,11 +339,16 @@
                         // Flash row if telemetry changed (e.g. status, RSSI, or scanner changed)
                         if (prevData.status !== beacon.status || 
                             prevData.rssi !== beacon.rssi || 
-                            prevData.scannerName !== beacon.scannerName) {
+                            prevData.scannerId !== beacon.scannerId) {
                             flashClass = 'row-update-flash';
                         }
                     }
                     deviceDataStore[key] = beacon;
+
+                    let distanceText = "-";
+                    if (isOnline && beacon.estimatedDistance !== null && beacon.estimatedDistance !== undefined) {
+                        distanceText = beacon.estimatedDistance.toFixed(1) + " m";
+                    }
 
                     rowsHtml += `<tr class="${flashClass}">
                         <td class="device-name">${beacon.deviceName}</td>
@@ -350,11 +359,12 @@
                                 ${beacon.status}
                             </span>
                         </td>
-                        <td class="text-white fw-semibold">${beacon.scannerName}</td>
+                        <td class="text-white fw-semibold">${beacon.scannerId}</td>
                         <td>${beacon.building}</td>
                         <td>${beacon.floor}</td>
                         <td>${beacon.location}</td>
                         <td>${getRssiMarkup(beacon.rssi)}</td>
+                        <td>${distanceText}</td>
                         <td>${getBatteryMarkup(beacon.battery)}</td>
                         <td class="font-monospace text-secondary">${beacon.lastSeen}</td>
                     </tr>`;
@@ -362,7 +372,7 @@
 
                 if (total === 0) {
                     rowsHtml = `<tr>
-                        <td colspan="10" class="text-center py-5 text-muted">
+                        <td colspan="11" class="text-center py-5 text-muted">
                             No tracking beacons available.
                         </td>
                     </tr>`;
@@ -376,7 +386,7 @@
             } catch (err) {
                 console.error('Error fetching live tracking metrics:', err);
                 trackingBody.innerHTML = `<tr>
-                    <td colspan="10" class="text-center py-4 text-danger font-semibold">
+                    <td colspan="11" class="text-center py-4 text-danger font-semibold">
                         <i class="bi bi-exclamation-triangle-fill me-2"></i>
                         Failed to fetch live beacon tracking updates. Retrying...
                     </td>

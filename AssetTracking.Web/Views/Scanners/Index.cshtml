@@ -4,29 +4,6 @@
 }
 
 @functions {
-    string GetHealth(DateTime? lastSeen)
-    {
-        if (lastSeen == null) return "Offline";
-        var localLastSeen = AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(lastSeen.Value);
-        var diff = DateTime.Now - localLastSeen;
-        if (diff.TotalSeconds <= 30) return "Healthy";
-        if (diff.TotalSeconds <= 120) return "Warning";
-        return "Offline";
-    }
-
-    string GetHealthBadgeClass(string health)
-    {
-        return health switch
-        {
-            "Healthy" => "bg-success",
-            "Warning" => "bg-warning text-dark",
-            "Offline" => "bg-danger",
-            _ => "bg-secondary"
-        };
-    }
-
-
-
     bool IsLegacyScanner(ScannerDevice scanner)
     {
         // Check if ID starts with "Scanner-"
@@ -182,15 +159,13 @@
     <div class="card card-custom">
         <div class="table-responsive">
             <table class="table table-custom">
-                <thead>
+                 <thead>
                     <tr>
                         <th>Scanner ID</th>
-                        <th>Scanner Name</th>
                         <th>Building</th>
                         <th>Floor</th>
                         <th>Location</th>
                         <th>Status</th>
-                        <th>Health</th>
                         <th>Last Seen</th>
                         <th class="text-end">Actions</th>
                     </tr>
@@ -199,7 +174,7 @@
                     @if (!Model.Any())
                     {
                         <tr>
-                            <td colspan="9" class="text-center py-5 text-muted">
+                            <td colspan="7" class="text-center py-5 text-muted">
                                 <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="mb-3 d-block mx-auto text-secondary">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                                 </svg>
@@ -215,31 +190,24 @@
                             string badgeClass = isOnline ? "badge-online" : "badge-offline";
                             string dotClass = isOnline ? "bg-online" : "bg-offline";
 
-                            string health = GetHealth(scanner.LastSeen);
-                            string healthClass = GetHealthBadgeClass(health);
-
                             <tr>
-                                <td class="scanner-id">@scanner.ScannerId</td>
-                                <td class="scanner-name">
-                                    @scanner.ScannerName
+                                <td class="scanner-id">
+                                    @scanner.ScannerId
                                     @if (IsLegacyScanner(scanner))
                                     {
                                         <div class="text-warning small mt-1" style="font-size: 0.75rem; font-weight: 500;">
-                                            <i class="bi bi-exclamation-triangle"></i> Legacy scanner record. Consider deleting if no longer used.
+                                            Legacy scanner record. Consider deleting if no longer used.
                                         </div>
                                     }
                                 </td>
                                 <td>@scanner.Building</td>
                                 <td>@scanner.Floor</td>
                                 <td>@scanner.Location</td>
-                                <td>
+                                 <td>
                                     <span class="badge-status @badgeClass">
                                         <span class="status-dot @dotClass"></span>
                                         @scanner.Status
                                     </span>
-                                </td>
-                                <td>
-                                    <span class="badge @healthClass">@health</span>
                                 </td>
                                 <td>@AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(scanner.LastSeen)</td>
                                 <td class="text-end">
