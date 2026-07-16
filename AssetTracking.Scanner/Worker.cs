@@ -6,6 +6,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Configuration;
 using AssetTracking.Shared;
 
 namespace AssetTracking.Scanner
@@ -14,6 +15,7 @@ namespace AssetTracking.Scanner
     {
         private readonly ILogger<Worker> _logger;
         private readonly HttpClient _httpClient;
+        private readonly IConfiguration _configuration;
         private readonly Random _random = new();
         private int _tickCount = 0;
 
@@ -27,9 +29,10 @@ namespace AssetTracking.Scanner
             new BeaconSimulationState("00:11:22:33:44:99", "Beacon-05", 45, 2.5, -3.2, 0.1, true, 616, 50)
         };
 
-        public Worker(ILogger<Worker> logger)
+        public Worker(ILogger<Worker> logger, IConfiguration configuration)
         {
             _logger = logger;
+            _configuration = configuration;
 
             // Configure HttpClient to ignore self-signed certificate validation errors on localhost
             var handler = new HttpClientHandler
@@ -101,7 +104,8 @@ namespace AssetTracking.Scanner
 
                     try
                     {
-                        var response = await _httpClient.PostAsJsonAsync("https://localhost:7037/api/beacon/telemetry", telemetry, stoppingToken);
+                        var baseUrl = (_configuration.GetValue<string>("ApiSettings:BaseUrl") ?? "https://localhost:5176").TrimEnd('/');
+                        var response = await _httpClient.PostAsJsonAsync($"{baseUrl}/api/beacon/telemetry", telemetry, stoppingToken);
                         if (response.IsSuccessStatusCode)
                         {
                             _logger.LogInformation("Sent telemetry for {DeviceName} ({MacAddress})", telemetry.DeviceName, telemetry.MacAddress);
