@@ -1,6 +1,6 @@
 @model ScannerDevice
 @{
-    ViewData["Title"] = "Edit Scanner";
+    ViewData["Title"] = "Edit Access Point";
 }
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -137,7 +137,7 @@
 
 <div class="edit-scanner-container container">
     <div class="edit-header mb-4">
-        <h2>Edit Scanner Details</h2>
+        <h2>Edit Access Point Details</h2>
         <p>Modify receiver properties. Read-only fields cannot be altered from this panel.</p>
     </div>
 
@@ -150,7 +150,7 @@
 
             <div class="form-group-custom">
                 <label class="label-custom">
-                    Scanner ID
+                    Access Point ID
                     <span class="readonly-badge">Read-Only</span>
                 </label>
                 <input asp-for="ScannerId" class="form-control input-custom input-readonly" readonly />

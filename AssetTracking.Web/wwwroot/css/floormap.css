@@ -1,0 +1,754 @@
+/* ==========================================================================
+   Floor Map Module Stylesheet - Dark Theme (Enterprise RTLS Edition)
+   ========================================================================== */
+
+/* Filter Controls Header & SignalR Status Group */
+.floormap-filter-group {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.floormap-filter-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.floormap-filter-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: var(--text-muted, #94a3b8);
+    margin: 0;
+    white-space: nowrap;
+}
+
+.floormap-select {
+    background-color: var(--card-bg, #151f32);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+    color: #ffffff;
+    border-radius: 0.5rem;
+    padding: 0.35rem 2rem 0.35rem 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.floormap-select:focus {
+    background-color: var(--card-bg, #151f32);
+    color: #ffffff;
+    border-color: var(--primary, #6366f1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.floormap-select option {
+    background-color: #0f172a;
+    color: #ffffff;
+}
+
+/* SignalR Connection Status Indicator */
+.floormap-signalr-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.3rem 0.85rem;
+    border-radius: 9999px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    background: rgba(30, 41, 59, 0.6);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+    color: var(--text-muted, #94a3b8);
+    transition: all 0.3s ease;
+}
+
+.floormap-signalr-status .status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.floormap-signalr-status.status-connected {
+    color: #34d399;
+    border-color: rgba(16, 185, 129, 0.3);
+}
+.floormap-signalr-status.status-connected .status-dot {
+    background-color: #10b981;
+    box-shadow: 0 0 8px #10b981;
+}
+
+.floormap-signalr-status.status-connecting {
+    color: #fbbf24;
+    border-color: rgba(245, 158, 11, 0.3);
+}
+.floormap-signalr-status.status-connecting .status-dot {
+    background-color: #f59e0b;
+    box-shadow: 0 0 8px #f59e0b;
+    animation: signalrPulse 1.5s infinite alternate;
+}
+
+.floormap-signalr-status.status-disconnected {
+    color: #f87171;
+    border-color: rgba(239, 68, 68, 0.3);
+}
+.floormap-signalr-status.status-disconnected .status-dot {
+    background-color: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+}
+
+@keyframes signalrPulse {
+    0% { transform: scale(0.9); opacity: 0.6; }
+    100% { transform: scale(1.2); opacity: 1; }
+}
+
+/* Panel Containers */
+.floormap-panel {
+    background-color: var(--card-bg, #151f32);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-radius: 1.25rem;
+    padding: 1.25rem;
+    box-shadow: 0 8px 30px 0 rgba(0, 0, 0, 0.2);
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+}
+
+.floormap-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.85rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.floormap-panel-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #ffffff;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+/* Search Input Styling */
+.floormap-search-input {
+    background-color: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+    color: #ffffff;
+    border-radius: 0.5rem;
+    padding-right: 2rem;
+    font-size: 0.82rem;
+}
+
+.floormap-search-input:focus {
+    background-color: rgba(15, 23, 42, 0.85);
+    color: #ffffff;
+    border-color: var(--primary, #6366f1);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+}
+
+.floormap-search-input::placeholder {
+    color: var(--text-muted, #94a3b8);
+}
+
+/* Beacon List Panel */
+.beacon-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    max-height: 580px;
+    overflow-y: auto;
+    padding-right: 4px;
+    flex-grow: 1;
+}
+
+/* Custom Scrollbar */
+.beacon-list-container::-webkit-scrollbar {
+    width: 5px;
+}
+.beacon-list-container::-webkit-scrollbar-track {
+    background: rgba(0, 0, 0, 0.1);
+    border-radius: 4px;
+}
+.beacon-list-container::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 4px;
+}
+.beacon-list-container::-webkit-scrollbar-thumb:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+/* Compact Beacon Card Item with Hover Animation & Selection */
+.beacon-card-item {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 0.75rem;
+    padding: 0.7rem 0.85rem;
+    cursor: pointer;
+    transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    position: relative;
+}
+
+.beacon-card-item:hover {
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(99, 102, 241, 0.4);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.25);
+}
+
+.beacon-card-item.selected {
+    background: rgba(99, 102, 241, 0.14);
+    border: 1.5px solid #6366f1 !important;
+    box-shadow: 0 0 16px rgba(99, 102, 241, 0.35);
+}
+
+.beacon-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.35rem;
+}
+
+.beacon-card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+}
+
+.beacon-status-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.beacon-status-dot.online {
+    background-color: #10b981;
+    box-shadow: 0 0 6px #10b981;
+}
+
+.beacon-status-dot.offline {
+    background-color: #ef4444;
+    box-shadow: 0 0 6px #ef4444;
+}
+
+.beacon-name {
+    font-weight: 600;
+    color: #ffffff;
+    font-size: 0.88rem;
+}
+
+.beacon-details-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.25rem 0.5rem;
+    font-size: 0.76rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+.beacon-detail-item {
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+}
+
+.beacon-detail-item i {
+    font-size: 0.82rem;
+    opacity: 0.85;
+}
+
+.beacon-detail-item.full-row {
+    grid-column: 1 / -1;
+}
+
+/* Status Badges */
+.status-pill {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 0.1rem 0.45rem;
+    border-radius: 9999px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.status-pill.online {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.status-pill.moving {
+    background: rgba(59, 130, 246, 0.15);
+    color: #60a5fa;
+    border: 1px solid rgba(59, 130, 246, 0.3);
+}
+
+.status-pill.offline {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* CSS Grid Floor Map */
+.floor-map-wrapper {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    flex-grow: 1;
+}
+
+.floor-map-grid {
+    display: grid;
+    grid-template-columns: 2fr 2fr 1.2fr;
+    grid-template-rows: 200px 140px 200px;
+    grid-template-areas:
+        "sitel    meeting   storage"
+        "corridor corridor  elevator"
+        "exit     toilet    corridor-east";
+    gap: 14px;
+    background-color: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-radius: 1rem;
+    padding: 1.25rem;
+    min-height: 580px;
+    position: relative;
+}
+
+/* Room Cells */
+.room-cell {
+    background: rgba(30, 41, 59, 0.5);
+    border: 2px solid rgba(255, 255, 255, 0.1);
+    border-radius: 0.75rem;
+    padding: 0.85rem;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-start;
+    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    overflow: hidden;
+}
+
+.room-cell:hover {
+    background: rgba(30, 41, 59, 0.7);
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.room-cell.highlight-room {
+    border-color: #6366f1 !important;
+    background: rgba(99, 102, 241, 0.1) !important;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
+}
+
+/* Room Specific Grid Area Assignment */
+.area-sitel { grid-area: sitel; }
+.area-meeting { grid-area: meeting; }
+.area-storage { grid-area: storage; }
+.area-corridor { grid-area: corridor; background: rgba(15, 23, 42, 0.3); border-style: dashed; }
+.area-elevator { grid-area: elevator; background: rgba(51, 65, 85, 0.4); }
+.area-toilet { grid-area: toilet; }
+.area-exit { grid-area: exit; background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2); }
+.area-corridor-east { grid-area: corridor-east; background: rgba(15, 23, 42, 0.3); border-style: dashed; }
+
+/* Room Header & Label */
+.room-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.82rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--text-muted, #94a3b8);
+    user-select: none;
+    pointer-events: none;
+}
+
+.room-header i {
+    font-size: 0.95rem;
+    opacity: 0.8;
+}
+
+/* Room Marker Container inside grid cells */
+.room-markers {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    align-content: center;
+    margin-top: auto;
+    margin-bottom: auto;
+    padding: 0.4rem;
+    z-index: 2;
+}
+
+/* Small Circular Markers */
+.map-marker {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    font-size: 0.7rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+    user-select: none;
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
+    position: relative;
+    padding: 0;
+    line-height: 1;
+}
+
+/* Scanner Marker Style - Blue Circular Marker */
+.scanner-marker {
+    background: #2563eb;
+    border: 2px solid #60a5fa;
+    color: #ffffff;
+}
+
+.scanner-marker:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.8);
+}
+
+/* Beacon Marker Styles - Green (Soft Pulse) / Red (No Pulse) Circular Markers */
+.beacon-marker.online {
+    background: #059669;
+    border: 2px solid #34d399;
+    color: #ffffff;
+    animation: softGreenPulse 2.5s infinite;
+}
+
+.beacon-marker.moving {
+    background: #2563eb;
+    border: 2px solid #60a5fa;
+    color: #ffffff;
+    animation: softBluePulse 2.5s infinite;
+}
+
+.beacon-marker.offline {
+    background: #dc2626;
+    border: 2px solid #f87171;
+    color: #ffffff;
+    opacity: 0.85;
+    animation: none;
+}
+
+.beacon-marker.online:hover, .beacon-marker.moving:hover, .beacon-marker.offline:hover {
+    transform: scale(1.15);
+    box-shadow: 0 0 12px rgba(99, 102, 241, 0.8);
+    opacity: 1;
+}
+
+/* Selected Beacon Marker Highlight (Glow, Scale 1.15, Pulse) */
+.beacon-marker.selected {
+    transform: scale(1.15) !important;
+    box-shadow: 0 0 20px rgba(99, 102, 241, 0.95), 0 0 8px #ffffff !important;
+    border-color: #ffffff !important;
+    z-index: 30;
+    animation: markerSelectPulse 1.2s infinite alternate !important;
+}
+
+@keyframes softGreenPulse {
+    0% { box-shadow: 0 0 4px rgba(16, 185, 129, 0.4); }
+    50% { box-shadow: 0 0 12px rgba(16, 185, 129, 0.8); }
+    100% { box-shadow: 0 0 4px rgba(16, 185, 129, 0.4); }
+}
+
+@keyframes softBluePulse {
+    0% { box-shadow: 0 0 4px rgba(59, 130, 246, 0.4); }
+    50% { box-shadow: 0 0 12px rgba(59, 130, 246, 0.8); }
+    100% { box-shadow: 0 0 4px rgba(59, 130, 246, 0.4); }
+}
+
+@keyframes markerSelectPulse {
+    0% { box-shadow: 0 0 10px rgba(99, 102, 241, 0.6), 0 0 2px #ffffff; }
+    100% { box-shadow: 0 0 25px rgba(99, 102, 241, 1), 0 0 10px #ffffff; }
+}
+
+/* Floating Detail Popup - Two Column Layout with Smart Non-Clipping Position */
+.floormap-beacon-popup {
+    position: absolute;
+    width: 320px;
+    background: #0f172a;
+    border: 1px solid var(--primary, #6366f1);
+    border-radius: 0.85rem;
+    padding: 0.85rem 1rem;
+    box-shadow: 0 14px 35px rgba(0, 0, 0, 0.75);
+    z-index: 1000;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.popup-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-bottom: 0.45rem;
+    margin-bottom: 0.55rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.popup-title {
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 0.92rem;
+}
+
+.popup-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.popup-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.5rem 0.75rem;
+}
+
+.popup-item {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.popup-item.full-width {
+    grid-column: 1 / -1;
+}
+
+.popup-label {
+    font-size: 0.72rem;
+    color: var(--text-muted, #94a3b8);
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+
+.popup-label i {
+    font-size: 0.8rem;
+    color: #818cf8;
+}
+
+.popup-val {
+    font-size: 0.8rem;
+    color: #ffffff;
+    font-weight: 500;
+}
+
+/* Hover Tooltip Styling */
+.floormap-tooltip {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    left: 50%;
+    transform: translateX(-50%);
+    background: #0f172a;
+    border: 1px solid var(--primary, #6366f1);
+    border-radius: 0.6rem;
+    padding: 0.55rem 0.75rem;
+    width: 170px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 100;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+    text-align: left;
+}
+
+.floormap-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: #6366f1 transparent transparent transparent;
+}
+
+.map-marker:hover .floormap-tooltip {
+    opacity: 1;
+    visibility: visible;
+}
+
+.tooltip-title {
+    font-weight: 700;
+    color: #ffffff;
+    font-size: 0.82rem;
+    margin-bottom: 0.25rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    padding-bottom: 0.15rem;
+}
+
+.tooltip-row {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    margin-bottom: 0.1rem;
+    color: #cbd5e1;
+}
+
+.tooltip-row .label {
+    color: var(--text-muted, #94a3b8);
+}
+
+/* Bottom Status Bar */
+.floormap-status-bar {
+    background-color: var(--card-bg, #151f32);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-radius: 0.85rem;
+    padding: 0.6rem 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    font-size: 0.82rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+}
+
+.status-bar-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.status-bar-label {
+    color: var(--text-muted, #94a3b8);
+    font-weight: 500;
+}
+
+.status-bar-val {
+    font-weight: 700;
+    color: #ffffff;
+}
+
+.status-bar-divider {
+    width: 1px;
+    height: 16px;
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+/* Map Legend */
+.floormap-legend {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 1.5rem;
+    padding-top: 0.85rem;
+    margin-top: 0.85rem;
+    border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    font-size: 0.82rem;
+    color: var(--text-muted, #94a3b8);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-badge {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.legend-badge.scanner {
+    background-color: #2563eb;
+    box-shadow: 0 0 8px rgba(37, 99, 235, 0.6);
+}
+
+.legend-badge.online-beacon {
+    background-color: #059669;
+    box-shadow: 0 0 8px rgba(5, 150, 105, 0.6);
+}
+
+.legend-badge.offline-beacon {
+    background-color: #dc2626;
+    box-shadow: 0 0 8px rgba(220, 38, 38, 0.6);
+}
+
+/* Empty State Container */
+.floormap-empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 3rem 1.5rem;
+    text-align: center;
+    color: var(--text-muted, #94a3b8);
+    background: rgba(15, 23, 42, 0.4);
+    border-radius: 0.75rem;
+    border: 1px dashed rgba(255, 255, 255, 0.1);
+}
+
+.floormap-empty-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+    opacity: 0.6;
+}
+
+.floormap-empty-title {
+    font-weight: 600;
+    color: #ffffff;
+    font-size: 1.1rem;
+    margin-bottom: 0.25rem;
+}
+
+.floormap-empty-desc {
+    font-size: 0.875rem;
+    margin: 0;
+}
+
+/* Responsive Styles: Desktop ~28% / 72% ratio */
+@media (min-width: 992px) {
+    .floormap-col-left {
+        width: 28%;
+        flex: 0 0 28%;
+    }
+    .floormap-col-right {
+        width: 72%;
+        flex: 0 0 72%;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .floor-map-grid {
+        grid-template-columns: 1fr 1fr;
+        grid-template-rows: auto;
+        grid-template-areas:
+            "sitel"
+            "meeting"
+            "storage"
+            "corridor"
+            "elevator"
+            "toilet"
+            "exit"
+            "corridor-east";
+        min-height: auto;
+    }
+
+    .floormap-legend {
+        justify-content: center;
+        flex-wrap: wrap;
+    }
+
+    .beacon-list-container {
+        max-height: 350px;
+    }
+
+    .floormap-beacon-popup {
+        position: relative;
+        top: 0;
+        left: 0;
+        width: 100%;
+        margin-bottom: 1rem;
+    }
+}

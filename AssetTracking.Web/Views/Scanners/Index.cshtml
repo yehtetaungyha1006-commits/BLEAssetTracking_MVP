@@ -1,6 +1,6 @@
 @model IEnumerable<ScannerDevice>
 @{
-    ViewData["Title"] = "Scanner Management";
+    ViewData["Title"] = "Access Point Management";
 }
 
 @functions {
@@ -152,7 +152,7 @@
 
 <div class="scanners-container container-fluid">
     <div class="scanners-header mb-4">
-        <h2>Scanner Device Management</h2>
+        <h2>Access Point Device Management</h2>
         <p class="text-muted mb-0">Monitor receiver health, clean legacy records, and configure receiver metadata.</p>
     </div>
 
@@ -161,7 +161,7 @@
             <table class="table table-custom">
                  <thead>
                     <tr>
-                        <th>Scanner ID</th>
+                        <th>Access Point ID</th>
                         <th>Building</th>
                         <th>Floor</th>
                         <th>Location</th>
@@ -178,7 +178,7 @@
                                 <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" class="mb-3 d-block mx-auto text-secondary">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
                                 </svg>
-                                No scanner devices found in the database.
+                                No Access Point devices found in the database.
                             </td>
                         </tr>
                     }
@@ -196,7 +196,7 @@
                                     @if (IsLegacyScanner(scanner))
                                     {
                                         <div class="text-warning small mt-1" style="font-size: 0.75rem; font-weight: 500;">
-                                            Legacy scanner record. Consider deleting if no longer used.
+                                            Legacy Access Point record. Consider deleting if no longer used.
                                         </div>
                                     }
                                 </td>

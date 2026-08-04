@@ -21,14 +21,22 @@ namespace AssetTracking.Web.Controllers
         private readonly ILogger<BeaconController> _logger;
         private readonly AlertEngine _alertEngine;
         private readonly IConfiguration _configuration;
+        private readonly IIndoorLocationService _indoorLocationService;
 
-        public BeaconController(AppDbContext context, IHubContext<BeaconHub> hubContext, ILogger<BeaconController> logger, AlertEngine alertEngine, IConfiguration configuration)
+        public BeaconController(
+            AppDbContext context,
+            IHubContext<BeaconHub> hubContext,
+            ILogger<BeaconController> logger,
+            AlertEngine alertEngine,
+            IConfiguration configuration,
+            IIndoorLocationService indoorLocationService)
         {
             _context = context;
             _hubContext = hubContext;
             _logger = logger;
             _alertEngine = alertEngine;
             _configuration = configuration;
+            _indoorLocationService = indoorLocationService;
         }
 
         [HttpPost("telemetry")]
@@ -119,18 +127,41 @@ namespace AssetTracking.Web.Controllers
 
                 _logger.LogInformation("Persisted telemetry for device {DeviceName} ({MacAddress}) into database", device.DeviceName, device.MacAddress);
 
-                // Broadcast to SignalR clients for the dashboard
-                telemetryDto.MacAddress = device.MacAddress;
-                telemetryDto.DeviceName = device.DeviceName ?? "Registered Beacon";
-                if (scanner != null)
-                {
-                    telemetryDto.ScannerName = scanner.ScannerId;
-                    telemetryDto.ScannerBuilding = scanner.Building;
-                    telemetryDto.ScannerFloor = scanner.Floor;
-                    telemetryDto.ScannerLocation = scanner.Location;
-                }
+                // Call IndoorLocationService for that Beacon to determine stable multi-scanner location
+                var locationResult = await _indoorLocationService.DetermineCurrentLocationAsync(device.DeviceId);
 
-                await _hubContext.Clients.All.SendAsync("BeaconUpdate", telemetryDto);
+                // Broadcast to SignalR clients
+                var payload = new
+                {
+                    macAddress = device.MacAddress,
+                    deviceName = device.DeviceName ?? "Registered Beacon",
+                    rssi = locationResult.IsAvailable ? (int)locationResult.RepresentativeRssi : telemetryDto.Rssi,
+                    batteryLevel = telemetryDto.BatteryLevel,
+                    xAxis = telemetryDto.XAxis,
+                    yAxis = telemetryDto.YAxis,
+                    zAxis = telemetryDto.ZAxis,
+                    isMoving = telemetryDto.IsMoving,
+                    receiveTime = DateTime.Now,
+                    major = telemetryDto.Major,
+                    minor = telemetryDto.Minor,
+                    scannerId = locationResult.IsAvailable ? locationResult.ScannerId : telemetryDto.ScannerId,
+                    scannerName = locationResult.IsAvailable ? (locationResult.ScannerName ?? locationResult.ScannerId) : (scanner?.ScannerName ?? telemetryDto.ScannerId),
+                    scannerBuilding = locationResult.IsAvailable ? locationResult.Building : (scanner?.Building ?? "Unknown"),
+                    scannerFloor = locationResult.IsAvailable ? locationResult.Floor : (scanner?.Floor ?? "Unknown"),
+                    scannerLocation = locationResult.IsAvailable ? locationResult.Location : (scanner?.Location ?? "Unknown Location"),
+                    
+                    // Floor Map specific
+                    deviceId = device.DeviceId,
+                    beaconId = device.DeviceId,
+                    building = locationResult.IsAvailable ? locationResult.Building : (scanner?.Building ?? "Unknown"),
+                    floor = locationResult.IsAvailable ? locationResult.Floor : (scanner?.Floor ?? "Unknown"),
+                    location = locationResult.IsAvailable ? locationResult.Location : (scanner?.Location ?? "Unknown Location"),
+                    estimatedDistance = locationResult.IsAvailable ? locationResult.EstimatedDistance : (AssetTracking.Web.Helpers.DistanceHelper.EstimateDistanceMeters(telemetryDto.Rssi) ?? 0.0),
+                    status = locationResult.IsAvailable ? (telemetryDto.IsMoving ? "Moving" : "Online") : "Offline",
+                    lastSeen = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(locationResult.IsAvailable ? locationResult.DeterminedAt : DateTime.Now)
+                };
+
+                await _hubContext.Clients.All.SendAsync("BeaconUpdate", payload);
 
                 return Ok(new { status = "Success", message = "Telemetry persisted and broadcasted" });
             }

@@ -33,53 +33,70 @@ namespace AssetTracking.Web.Controllers
         {
             var now = DateTime.Now;
             var cutoff30 = now.AddSeconds(-30);
-            var beacons = await _context.BeaconDevices
-                .Include(b => b.Telemetries)
-                    .ThenInclude(t => t.Scanner)
+
+            var latestTelemetryIdsQuery = _context.BeaconTelemetries
                 .AsNoTracking()
-                .ToListAsync();
+                .GroupBy(t => t.DeviceId)
+                .Select(g => g.Max(t => t.TelemetryId));
 
-            var data = beacons.Select(b => {
-                // Find recent telemetries within the last 30 seconds
-                var recentTelemetries = b.Telemetries
-                    .Where(t => AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(t.ReceiveTime) >= cutoff30)
-                    .ToList();
+            var latestTelemetriesQuery = _context.BeaconTelemetries
+                .AsNoTracking()
+                .Where(t => latestTelemetryIdsQuery.Contains(t.TelemetryId));
 
-                BeaconTelemetry? selectedTelemetry = null;
+            var rawData = await (from b in _context.BeaconDevices.AsNoTracking()
+                                 join t in latestTelemetriesQuery on b.DeviceId equals t.DeviceId into tGroup
+                                 from lt in tGroup.DefaultIfEmpty()
+                                 join s in _context.Scanners.AsNoTracking() on lt.ScannerId equals s.ScannerId into sGroup
+                                 from sc in sGroup.DefaultIfEmpty()
+                                 select new
+                                 {
+                                     b.DeviceId,
+                                     b.DeviceName,
+                                     b.MacAddress,
+                                     b.LastSeen,
+                                     LatestTelemetryId = (long?)lt.TelemetryId,
+                                     Rssi = (int?)lt.Rssi,
+                                     BatteryLevel = (int?)lt.BatteryLevel,
+                                     IsMoving = (bool?)lt.IsMoving,
+                                     ReceiveTime = (DateTime?)lt.ReceiveTime,
+                                     ScannerId = lt.ScannerId,
+                                     ScannerName = sc.ScannerName,
+                                     Building = sc.Building,
+                                     Floor = sc.Floor,
+                                     Location = sc.Location
+                                 })
+                                 .ToListAsync();
+
+            var data = rawData.Select(d => {
+                var hasLatestTelemetry = d.LatestTelemetryId.HasValue;
+                DateTime? telemetryTime = hasLatestTelemetry ? AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(d.ReceiveTime!.Value) : null;
+                
                 string status = "Offline";
-
-                if (recentTelemetries.Any())
+                if (hasLatestTelemetry && telemetryTime.HasValue && telemetryTime.Value >= cutoff30)
                 {
-                    // Select the telemetry with the highest RSSI
-                    selectedTelemetry = recentTelemetries.OrderByDescending(t => t.Rssi).First();
                     status = "Online";
-                }
-                else
-                {
-                    // Fall back to absolute latest telemetry for last known location, but status is Offline
-                    selectedTelemetry = b.Telemetries.OrderByDescending(t => AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(t.ReceiveTime)).FirstOrDefault();
-                    status = "Offline";
                 }
 
                 double? estimatedDistance = null;
-                if (status != "Offline" && selectedTelemetry != null)
+                if (status != "Offline" && d.Rssi.HasValue)
                 {
-                    estimatedDistance = AssetTracking.Web.Helpers.DistanceHelper.EstimateDistanceMeters(selectedTelemetry.Rssi);
+                    estimatedDistance = AssetTracking.Web.Helpers.DistanceHelper.EstimateDistanceMeters(d.Rssi.Value);
                 }
 
                 return new {
-                    deviceName = b.DeviceName ?? "Unnamed Beacon",
-                    macAddress = b.MacAddress,
+                    deviceName = d.DeviceName ?? "Unnamed Beacon",
+                    macAddress = d.MacAddress,
                     status = status,
-                    isMoving = selectedTelemetry?.IsMoving ?? false,
-                    scannerId = selectedTelemetry?.ScannerId ?? "-",
-                    building = selectedTelemetry?.Scanner?.Building ?? "-",
-                    floor = selectedTelemetry?.Scanner?.Floor ?? "-",
-                    location = selectedTelemetry?.Scanner?.Location ?? "-",
-                    rssi = selectedTelemetry?.Rssi ?? 0,
+                    isMoving = hasLatestTelemetry && d.IsMoving == true,
+                    scannerId = hasLatestTelemetry ? (d.ScannerId ?? "-") : "-",
+                    building = hasLatestTelemetry ? (d.Building ?? "-") : "-",
+                    floor = hasLatestTelemetry ? (d.Floor ?? "-") : "-",
+                    location = hasLatestTelemetry ? (d.Location ?? "-") : "-",
+                    rssi = hasLatestTelemetry ? (d.Rssi ?? 0) : 0,
                     estimatedDistance = estimatedDistance,
-                    battery = selectedTelemetry?.BatteryLevel ?? 0,
-                    lastSeen = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(b.LastSeen)
+                    battery = hasLatestTelemetry ? (d.BatteryLevel ?? 0) : 0,
+                    lastSeen = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(d.LastSeen),
+                    rawLastSeen = d.LastSeen
                 };
             }).ToList();
 

@@ -302,8 +302,11 @@
             <a class="nav-link-custom @(isDashboardActive ? "active" : "")" href="/">
                 <i class="bi bi-speedometer2"></i> Dashboard
             </a>
+            <a class="nav-link-custom @(currentController == "FloorMap" ? "active" : "")" href="/FloorMap">
+                <i class="bi bi-map"></i> Floor Map
+            </a>
             <a class="nav-link-custom @(currentController == "Scanners" ? "active" : "")" href="/Scanners">
-                <i class="bi bi-router"></i> Scanners
+                <i class="bi bi-router"></i> Access Points
             </a>
             <a class="nav-link-custom @(currentController == "Beacons" ? "active" : "")" href="/Beacons">
                 <i class="bi bi-broadcast"></i> Beacons

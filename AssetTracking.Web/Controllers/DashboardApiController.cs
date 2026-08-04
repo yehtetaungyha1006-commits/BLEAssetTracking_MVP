@@ -26,15 +26,89 @@ namespace AssetTracking.Web.Controllers
         {
             try
             {
-                // Fetch all devices including their telemetries (excluding demo devices)
+                var now = DateTime.Now;
+                var cutoff30 = now.AddSeconds(-30);
+
+                // 1. Fetch devices (excluding demo devices)
                 var devices = await _context.BeaconDevices
-                    .Include(d => d.Telemetries)
-                        .ThenInclude(t => t.Scanner)
+                    .AsNoTracking()
                     .Where(d => !d.MacAddress.StartsWith("00:11:22:33:44"))
                     .ToListAsync();
 
-                var now = DateTime.Now;
-                var cutoff30 = now.AddSeconds(-30);
+                var deviceIds = devices.Select(d => d.DeviceId).ToList();
+
+                // 2. Fetch recent telemetries (last 30 seconds) for these devices
+                var recentTelemetries = await _context.BeaconTelemetries
+                    .AsNoTracking()
+                    .Where(t => deviceIds.Contains(t.DeviceId) && t.ReceiveTime >= cutoff30)
+                    .Select(t => new
+                    {
+                        t.DeviceId,
+                        t.TelemetryId,
+                        t.Rssi,
+                        t.BatteryLevel,
+                        t.XAxis,
+                        t.YAxis,
+                        t.ZAxis,
+                        t.IsMoving,
+                        t.ReceiveTime,
+                        t.ScannerId,
+                        Scanner = t.Scanner == null ? null : new
+                        {
+                            t.Scanner.ScannerId,
+                            t.Scanner.ScannerName,
+                            t.Scanner.Building,
+                            t.Scanner.Floor,
+                            t.Scanner.Location
+                        }
+                    })
+                    .ToListAsync();
+
+                // 3. Fetch latest telemetry IDs per device
+                var latestTelemetryIdsQuery = _context.BeaconTelemetries
+                    .AsNoTracking()
+                    .Where(t => deviceIds.Contains(t.DeviceId))
+                    .GroupBy(t => t.DeviceId)
+                    .Select(g => g.Max(t => t.TelemetryId));
+
+                // 4. Fetch the latest telemetry records
+                var latestTelemetries = await _context.BeaconTelemetries
+                    .AsNoTracking()
+                    .Where(t => latestTelemetryIdsQuery.Contains(t.TelemetryId))
+                    .Select(t => new
+                    {
+                        t.DeviceId,
+                        t.TelemetryId,
+                        t.Rssi,
+                        t.BatteryLevel,
+                        t.XAxis,
+                        t.YAxis,
+                        t.ZAxis,
+                        t.IsMoving,
+                        t.ReceiveTime,
+                        t.ScannerId,
+                        Scanner = t.Scanner == null ? null : new
+                        {
+                            t.Scanner.ScannerId,
+                            t.Scanner.ScannerName,
+                            t.Scanner.Building,
+                            t.Scanner.Floor,
+                            t.Scanner.Location
+                        }
+                    })
+                    .ToListAsync();
+
+                // Group recent telemetries by DeviceId and pick the one with highest RSSI
+                var recentGrouped = recentTelemetries
+                    .GroupBy(t => t.DeviceId)
+                    .ToDictionary(
+                        g => g.Key,
+                        g => g.OrderByDescending(t => t.Rssi).First()
+                    );
+
+                // Dictionary of latest telemetries
+                var latestDict = latestTelemetries
+                    .ToDictionary(t => t.DeviceId);
 
                 int onlineDevices = 0;
                 int offlineDevices = 0;
@@ -43,32 +117,25 @@ namespace AssetTracking.Web.Controllers
 
                 var deviceData = devices.Select(device =>
                 {
-                    // Find recent telemetries within the last 30 seconds
-                    var recentTelemetries = device.Telemetries
-                        .Where(t => AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(t.ReceiveTime) >= cutoff30)
-                        .ToList();
-
-                    BeaconTelemetry? selectedTelemetry = null;
+                    // Look up recent telemetry
+                    recentGrouped.TryGetValue(device.DeviceId, out var selectedTelemetry);
                     string status = "Offline";
 
-                    if (recentTelemetries.Any())
+                    if (selectedTelemetry != null)
                     {
-                        // Select the telemetry with the highest RSSI
-                        selectedTelemetry = recentTelemetries.OrderByDescending(t => t.Rssi).First();
                         status = selectedTelemetry.IsMoving ? "Moving" : "Online";
                         onlineDevices++;
                     }
                     else
                     {
-                        // Fall back to the absolute latest telemetry for last known location, but status is Offline
-                        selectedTelemetry = device.Telemetries.OrderByDescending(t => AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(t.ReceiveTime)).FirstOrDefault();
+                        // Fall back to latest telemetry
+                        latestDict.TryGetValue(device.DeviceId, out selectedTelemetry);
                         status = "Offline";
                         offlineDevices++;
                     }
 
                     bool isMoving = selectedTelemetry != null && selectedTelemetry.IsMoving;
 
-                    // Count moving and low battery devices from their selected telemetry
                     if (selectedTelemetry != null)
                     {
                         if (isMoving && status != "Offline")

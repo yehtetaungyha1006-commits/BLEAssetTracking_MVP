@@ -185,7 +185,7 @@
 <div class="container-fluid">
     <div class="live-header mb-4">
         <h2>Live Beacon Tracking</h2>
-        <p class="text-muted">Real-time mapping of BLE beacons and their nearest scanner positions.</p>
+        <p class="text-muted">Real-time mapping of BLE beacons and their nearest Access Point positions.</p>
     </div>
 
     <!-- Metrics Cards -->
@@ -228,7 +228,7 @@
                         <th>Device Name</th>
                         <th>MAC Address</th>
                         <th>Status</th>
-                        <th>Nearest Scanner</th>
+                        <th>Access Point</th>
                         <th>Building</th>
                         <th>Floor</th>
                         <th>Location</th>
@@ -255,6 +255,7 @@
 </div>
 
 @section Scripts {
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
     <script>
         const trackingBody = document.getElementById('liveTrackingBody');
         const totalBeaconsCount = document.getElementById('totalBeaconsCount');
@@ -272,15 +273,28 @@
             return `<span class="text-white">${rssi} dBm</span>`;
         }
 
-        function getRelativeTimeStr(lastSeenStr) {
-            if (!lastSeenStr || lastSeenStr === 'Never') return 'Never';
+        function estimateDistanceMeters(rssi) {
+            if (!rssi) return null;
+            const txPower = -59.0;
+            const pathLossExponent = 2.5;
+            const distance = Math.pow(10, (txPower - rssi) / (10.0 * pathLossExponent));
+            return Math.round(distance * 10) / 10;
+        }
+
+        function getRelativeTimeStr(lastSeen) {
+            if (!lastSeen) return 'Never';
             
-            // Format space to T for ISO standard
-            let dateStr = lastSeenStr.replace(' ', 'T');
-            if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
-                dateStr += 'Z';
+            let lastSeenDate;
+            if (lastSeen instanceof Date) {
+                lastSeenDate = lastSeen;
+            } else {
+                let dateStr = String(lastSeen).replace(' ', 'T');
+                if (!dateStr.endsWith('Z') && !dateStr.includes('+')) {
+                    dateStr += 'Z';
+                }
+                lastSeenDate = new Date(dateStr);
             }
-            const lastSeenDate = new Date(dateStr);
+
             if (isNaN(lastSeenDate.getTime())) return 'Never';
             
             const now = new Date();
@@ -301,7 +315,6 @@
                 const diffDays = Math.floor(diffSecs / 86400);
                 return `${diffDays} days ago`;
             } else {
-                // yyyy-MM-dd HH:mm
                 const yyyy = lastSeenDate.getFullYear();
                 const MM = String(lastSeenDate.getMonth() + 1).padStart(2, '0');
                 const dd = String(lastSeenDate.getDate()).padStart(2, '0');
@@ -309,6 +322,127 @@
                 const mm = String(lastSeenDate.getMinutes()).padStart(2, '0');
                 return `${yyyy}-${MM}-${dd} ${HH}:${mm}`;
             }
+        }
+
+        function renderRowHtml(beacon) {
+            const isOnline = beacon.status.toLowerCase() === 'online';
+            const badgeClass = isOnline ? 'badge-online-custom' : 'badge-offline-custom';
+            const dotClass = isOnline ? 'bg-online-custom' : 'bg-offline-custom';
+
+            let distanceText = "-";
+            if (isOnline && beacon.estimatedDistance !== null && beacon.estimatedDistance !== undefined) {
+                distanceText = beacon.estimatedDistance.toFixed(1) + " m";
+            }
+
+            return `
+                <td class="device-name">${beacon.deviceName}</td>
+                <td class="mac-address">${beacon.macAddress}</td>
+                <td>
+                    <span class="badge-status ${badgeClass}">
+                        <span class="status-dot ${dotClass}"></span>
+                        ${beacon.status}
+                    </span>
+                </td>
+                <td class="text-white fw-semibold">${beacon.scannerId}</td>
+                <td>${beacon.building}</td>
+                <td>${beacon.floor}</td>
+                <td>${beacon.location}</td>
+                <td>${getRssiMarkup(beacon.rssi)}</td>
+                <td>${distanceText}</td>
+                <td>${getBatteryMarkup(beacon.battery)}</td>
+                <td class="font-monospace text-secondary">${beacon.lastSeen}</td>
+            `;
+        }
+
+        function updateMetricsCounts() {
+            let onlineCount = 0;
+            let offlineCount = 0;
+            let totalCount = 0;
+
+            const now = new Date();
+
+            Object.keys(deviceDataStore).forEach(key => {
+                const beacon = deviceDataStore[key];
+                totalCount++;
+
+                let isOnline = false;
+                if (beacon.rawLastSeen) {
+                    const lastSeenDate = new Date(beacon.rawLastSeen);
+                    const diffMs = now - lastSeenDate;
+                    const diffSecs = Math.max(0, Math.floor(diffMs / 1000));
+                    isOnline = diffSecs <= 30;
+                }
+
+                if (isOnline) {
+                    onlineCount++;
+                } else {
+                    offlineCount++;
+                }
+            });
+
+            totalBeaconsCount.innerText = totalCount;
+            onlineBeaconsCount.innerText = onlineCount;
+            offlineBeaconsCount.innerText = offlineCount;
+        }
+
+        function checkOfflineStatus() {
+            let onlineCount = 0;
+            let offlineCount = 0;
+            let totalCount = 0;
+
+            const now = new Date();
+
+            Object.keys(deviceDataStore).forEach(key => {
+                const beacon = deviceDataStore[key];
+                totalCount++;
+
+                let isOnline = false;
+                if (beacon.rawLastSeen) {
+                    const lastSeenDate = new Date(beacon.rawLastSeen);
+                    const diffMs = now - lastSeenDate;
+                    const diffSecs = Math.max(0, Math.floor(diffMs / 1000));
+                    isOnline = diffSecs <= 30;
+                }
+
+                const currentStatus = isOnline ? 'Online' : 'Offline';
+
+                if (isOnline) {
+                    onlineCount++;
+                } else {
+                    offlineCount++;
+                }
+
+                if (beacon.status !== currentStatus) {
+                    beacon.status = currentStatus;
+                    beacon.lastSeen = getRelativeTimeStr(beacon.rawLastSeen);
+                    
+                    const macSafe = beacon.macAddress.replace(/:/g, '');
+                    const row = document.getElementById(`row-${macSafe}`);
+                    if (row) {
+                        row.innerHTML = renderRowHtml(beacon);
+                    }
+                } else {
+                    const macSafe = beacon.macAddress.replace(/:/g, '');
+                    const row = document.getElementById(`row-${macSafe}`);
+                    if (row) {
+                        const lastSeenCell = row.querySelector('td:last-child');
+                        if (lastSeenCell) {
+                            lastSeenCell.innerText = getRelativeTimeStr(beacon.rawLastSeen);
+                        }
+
+                        if (!isOnline) {
+                            const distanceCell = row.querySelector('td:nth-child(9)');
+                            if (distanceCell && distanceCell.innerText !== '-') {
+                                distanceCell.innerText = '-';
+                            }
+                        }
+                    }
+                }
+            });
+
+            totalBeaconsCount.innerText = totalCount;
+            onlineBeaconsCount.innerText = onlineCount;
+            offlineBeaconsCount.innerText = offlineCount;
         }
 
         async function fetchLiveTracking() {
@@ -322,51 +456,18 @@
                 let offline = 0;
 
                 let rowsHtml = '';
+                deviceDataStore = {};
 
                 data.forEach(beacon => {
                     const isOnline = beacon.status.toLowerCase() === 'online';
                     if (isOnline) online++; else offline++;
 
-                    const badgeClass = isOnline ? 'badge-online-custom' : 'badge-offline-custom';
-                    const dotClass = isOnline ? 'bg-online-custom' : 'bg-offline-custom';
-
-                    // Track changes to trigger CSS flash animations on cells
                     const key = beacon.macAddress;
-                    const prevData = deviceDataStore[key];
-                    let flashClass = '';
-
-                    if (prevData) {
-                        // Flash row if telemetry changed (e.g. status, RSSI, or scanner changed)
-                        if (prevData.status !== beacon.status || 
-                            prevData.rssi !== beacon.rssi || 
-                            prevData.scannerId !== beacon.scannerId) {
-                            flashClass = 'row-update-flash';
-                        }
-                    }
                     deviceDataStore[key] = beacon;
 
-                    let distanceText = "-";
-                    if (isOnline && beacon.estimatedDistance !== null && beacon.estimatedDistance !== undefined) {
-                        distanceText = beacon.estimatedDistance.toFixed(1) + " m";
-                    }
-
-                    rowsHtml += `<tr class="${flashClass}">
-                        <td class="device-name">${beacon.deviceName}</td>
-                        <td class="mac-address">${beacon.macAddress}</td>
-                        <td>
-                            <span class="badge-status ${badgeClass}">
-                                <span class="status-dot ${dotClass}"></span>
-                                ${beacon.status}
-                            </span>
-                        </td>
-                        <td class="text-white fw-semibold">${beacon.scannerId}</td>
-                        <td>${beacon.building}</td>
-                        <td>${beacon.floor}</td>
-                        <td>${beacon.location}</td>
-                        <td>${getRssiMarkup(beacon.rssi)}</td>
-                        <td>${distanceText}</td>
-                        <td>${getBatteryMarkup(beacon.battery)}</td>
-                        <td class="font-monospace text-secondary">${beacon.lastSeen}</td>
+                    const macSafe = key.replace(/:/g, '');
+                    rowsHtml += `<tr id="row-${macSafe}">
+                        ${renderRowHtml(beacon)}
                     </tr>`;
                 });
 
@@ -394,10 +495,74 @@
             }
         }
 
-        // Initial fetch
-        fetchLiveTracking();
+        let signalRConnection = null;
 
-        // Polling every 5 seconds
-        setInterval(fetchLiveTracking, 5000);
+        function initSignalR() {
+            if (typeof signalR === "undefined") {
+                console.warn("SignalR library not loaded");
+                return;
+            }
+
+            signalRConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/beaconHub")
+                .withAutomaticReconnect([0, 2000, 5000, 10000, 20000])
+                .build();
+
+            signalRConnection.on("BeaconUpdate", (data) => {
+                if (!data) return;
+
+                if (data.macAddress && data.macAddress.startsWith("00:11:22:33:44")) {
+                    return;
+                }
+
+                const key = data.macAddress;
+                const now = new Date();
+                
+                const updatedBeacon = {
+                    deviceName: data.deviceName || "Unnamed Beacon",
+                    macAddress: data.macAddress,
+                    status: "Online",
+                    isMoving: data.isMoving,
+                    scannerId: data.scannerId || "-",
+                    building: data.scannerBuilding || "-",
+                    floor: data.scannerFloor || "-",
+                    location: data.scannerLocation || "-",
+                    rssi: data.rssi,
+                    estimatedDistance: data.rssi ? estimateDistanceMeters(data.rssi) : null,
+                    battery: data.batteryLevel,
+                    lastSeen: "just now",
+                    rawLastSeen: now.toISOString()
+                };
+
+                const prevData = deviceDataStore[key];
+                deviceDataStore[key] = updatedBeacon;
+
+                const macSafe = key.replace(/:/g, '');
+                const row = document.getElementById(`row-${macSafe}`);
+                if (row) {
+                    row.innerHTML = renderRowHtml(updatedBeacon);
+                    if (!prevData || prevData.status !== updatedBeacon.status || prevData.rssi !== updatedBeacon.rssi || prevData.scannerId !== updatedBeacon.scannerId) {
+                        row.classList.remove('row-update-flash');
+                        void row.offsetWidth; // trigger reflow
+                        row.classList.add('row-update-flash');
+                    }
+                } else {
+                    const newRow = document.createElement('tr');
+                    newRow.id = `row-${macSafe}`;
+                    newRow.innerHTML = renderRowHtml(updatedBeacon);
+                    trackingBody.appendChild(newRow);
+                }
+
+                updateMetricsCounts();
+            });
+
+            signalRConnection.start().catch(err => console.error("SignalR Connection Error:", err));
+        }
+
+        // Initial fetch then init SignalR and the offline checking interval
+        fetchLiveTracking().then(() => {
+            initSignalR();
+            setInterval(checkOfflineStatus, 5000);
+        });
     </script>
 }

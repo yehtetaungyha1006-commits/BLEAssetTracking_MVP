@@ -12,7 +12,8 @@ builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 builder.Services.AddScoped<AlertEngine>();
-builder.Services.AddHostedService<AlertMonitoringWorker>();
+builder.Services.AddSingleton<IIndoorLocationService, IndoorLocationService>();
+//builder.Services.AddHostedService<AlertMonitoringWorker>();
 
 var app = builder.Build();
 

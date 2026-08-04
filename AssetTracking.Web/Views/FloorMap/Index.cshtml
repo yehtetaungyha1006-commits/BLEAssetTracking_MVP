@@ -1,0 +1,277 @@
+@model AssetTracking.Web.Models.FloorMapViewModel
+@{
+    ViewData["Title"] = "Floor Map";
+    var jsonOptions = new System.Text.Json.JsonSerializerOptions
+    {
+        PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
+    };
+    var jsonData = System.Text.Json.JsonSerializer.Serialize(Model ?? new AssetTracking.Web.Models.FloorMapViewModel(), jsonOptions);
+}
+
+<link rel="stylesheet" href="~/css/floormap.css" asp-append-version="true" />
+
+<script id="floorMapData" type="application/json">
+    @Html.Raw(jsonData)
+</script>
+
+<div class="px-2">
+    @if (ViewBag.ErrorMessage != null)
+    {
+        <div class="alert alert-danger bg-danger text-white border-0 mb-4 shadow-sm rounded-3 d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
+            <div>@ViewBag.ErrorMessage</div>
+        </div>
+    }
+
+    <!-- Header with Filters & SignalR Status -->
+    <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 pb-3" style="border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));">
+        <div class="mb-3 mb-md-0">
+            <h1 class="h2 fw-bold text-white mb-1">Floor Map</h1>
+            <p class="text-muted mb-0">Real-time BLE Beacon Tracking</p>
+        </div>
+
+        <div class="d-flex align-items-center gap-3 flex-wrap">
+            <!-- SignalR Connection Status Indicator -->
+            <div id="floormap-signalr-status" class="floormap-signalr-status status-connecting">
+                <span class="status-dot"></span>
+                <span id="signalr-status-text">Connecting...</span>
+            </div>
+
+            <!-- Building & Floor Filter Dropdowns -->
+            <div class="floormap-filter-group">
+                <div class="floormap-filter-item">
+                    <label for="building-filter" class="floormap-filter-label">Building:</label>
+                    <select id="building-filter" class="form-select form-select-sm floormap-select" aria-label="Building Filter">
+                        <!-- Populated dynamically via floormap.js -->
+                    </select>
+                </div>
+                <div class="floormap-filter-item">
+                    <label for="floor-filter" class="floormap-filter-label">Floor:</label>
+                    <select id="floor-filter" class="form-select form-select-sm floormap-select" aria-label="Floor Filter">
+                        <!-- Populated dynamically via floormap.js -->
+                    </select>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Layout: Left Panel (Beacon List 28%) & Right Panel (Floor Map 72%) -->
+    <div class="row g-4">
+        <!-- LEFT PANEL: Beacon List (28%) -->
+        <div class="col-12 col-lg-4 floormap-col-left">
+            <div class="floormap-panel">
+                <div class="floormap-panel-header flex-column align-items-stretch gap-2">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h2 class="floormap-panel-title">
+                            <i class="bi bi-list-ul"></i> Beacon List
+                        </h2>
+                    </div>
+                    <!-- Search Beacon Input -->
+                    <div class="position-relative">
+                        <input type="text" id="beacon-search-input" class="form-control form-control-sm floormap-search-input" placeholder="Search Beacon..." aria-label="Search Beacon">
+                        <i class="bi bi-search position-absolute top-50 end-0 translate-middle-y me-2 text-muted" style="font-size: 0.8rem; pointer-events: none;"></i>
+                    </div>
+                </div>
+                <div id="beacon-list-container" class="beacon-list-container">
+                    <!-- Populated dynamically via floormap.js -->
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT PANEL: Building Floor Plan (72%) -->
+        <div class="col-12 col-lg-8 floormap-col-right">
+            <div class="floormap-panel position-relative">
+                <div class="floormap-panel-header">
+                    <h2 class="floormap-panel-title">
+                        <i class="bi bi-map"></i> Building Floor Plan
+                    </h2>
+                </div>
+
+                <div class="floor-map-wrapper">
+                    <!-- Floating Information Popup (Two Column Grid) -->
+                    <div id="floormap-beacon-popup" class="floormap-beacon-popup d-none">
+                        <div class="popup-header">
+                            <div class="d-flex align-items-center gap-2">
+                                <i class="bi bi-broadcast text-primary"></i>
+                                <span id="popup-device-name" class="popup-title">Beacon Name</span>
+                            </div>
+                            <button type="button" class="btn-close btn-close-white btn-sm" id="popup-close-btn" aria-label="Close"></button>
+                        </div>
+                        <div class="popup-body">
+                            <div class="popup-grid">
+                                <div class="popup-item full-width">
+                                    <div class="popup-label"><i class="bi bi-qr-code"></i> MAC Address</div>
+                                    <div id="popup-mac-address" class="popup-val font-monospace">00:00:00:00:00:00</div>
+                                </div>
+                                <div class="popup-item">
+                                    <div class="popup-label"><i class="bi bi-router"></i> Access Point</div>
+                                    <div id="popup-scanner-name" class="popup-val">Access Point-01</div>
+                                </div>
+                                <div class="popup-item">
+                                    <div class="popup-label"><i class="bi bi-geo-alt"></i> Location</div>
+                                    <div id="popup-location" class="popup-val">SiTEL Room</div>
+                                </div>
+                                <div class="popup-item">
+                                    <div class="popup-label"><i class="bi bi-wifi"></i> RSSI</div>
+                                    <div id="popup-rssi" class="popup-val">-48 dBm</div>
+                                </div>
+                                <div class="popup-item">
+                                    <div class="popup-label"><i class="bi bi-battery-half"></i> Battery</div>
+                                    <div id="popup-battery" class="popup-val">92%</div>
+                                </div>
+                                <div class="popup-item">
+                                    <div class="popup-label"><i class="bi bi-ruler"></i> Est. Distance</div>
+                                    <div id="popup-distance" class="popup-val text-info fw-bold">0.8 m</div>
+                                </div>
+                                <div class="popup-item">
+                                    <div class="popup-label"><i class="bi bi-activity"></i> Status</div>
+                                    <div id="popup-status" class="popup-val fw-bold">Online</div>
+                                </div>
+                                <div class="popup-item full-width">
+                                    <div class="popup-label"><i class="bi bi-clock-history"></i> Last Seen</div>
+                                    <div id="popup-last-seen" class="popup-val">just now</div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- HTML + CSS Grid Floor Plan -->
+                    <div class="floor-map-grid">
+                        
+                        <!-- SiTEL Room -->
+                        <div class="room-cell area-sitel">
+                            <div class="room-header">
+                                <i class="bi bi-display"></i>
+                                <span>ห้อง SiTEL</span>
+                            </div>
+                            <div id="markers-sitel" class="room-markers"></div>
+                        </div>
+
+                        <!-- Meeting Room -->
+                        <div class="room-cell area-meeting">
+                            <div class="room-header">
+                                <i class="bi bi-people"></i>
+                                <span>ห้องประชุม 617</span>
+                            </div>
+                            <div id="markers-meeting" class="room-markers"></div>
+                        </div>
+
+                        <!-- Storage -->
+                        <div class="room-cell area-storage">
+                            <div class="room-header">
+                                <i class="bi bi-box-seam"></i>
+                                <span>ห้องเก็บของ</span>
+                            </div>
+                            <div id="markers-storage" class="room-markers"></div>
+                        </div>
+
+                        <!-- Corridor -->
+                        <div class="room-cell area-corridor">
+                            <div class="room-header">
+                                <i class="bi bi-bounding-box-circles"></i>
+                                <span>ทางเดิน</span>
+                            </div>
+                            <div id="markers-corridor" class="room-markers"></div>
+                        </div>
+
+                        <!-- Elevator -->
+                        <div class="room-cell area-elevator">
+                            <div class="room-header">
+                                <i class="bi bi-arrow-down-up"></i>
+                                <span>ลิฟต์</span>
+                            </div>
+                            <div id="markers-elevator" class="room-markers"></div>
+                        </div>
+
+                        <!-- Toilet -->
+                        <div class="room-cell area-training">
+                            <div class="room-header">
+                                <i class="bi bi-people"></i>
+                                <span>ห้องอบรม</span>
+                            </div>
+                            <div id="markers-training" class="room-markers"></div>
+                        </div>
+
+                        <div class="room-cell area-training">
+                            <div class="room-header">
+                                <i class="bi bi-people"></i>
+                                <span>ห้องอบรม 1</span>
+                            </div>
+                            <div id="markers-training" class="room-markers"></div>
+                        </div>
+
+                        
+                        <div class="room-cell area-training">
+                            <div class="room-header">
+                                <i class="bi bi-people"></i>
+                                <span>ห้องน้ำ</span>
+                            </div>
+                            <div id="markers-training" class="room-markers"></div>
+                        </div>
+                    </div>
+
+                    <!-- Compact Legend -->
+                    <div class="floormap-legend">
+                        <div class="legend-item">
+                            <span class="legend-badge scanner"></span>
+                            <span>Access Point</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-badge online-beacon"></span>
+                            <span>Online Beacon</span>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-badge offline-beacon"></span>
+                            <span>Offline Beacon</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Compact Status Bar -->
+    <footer id="floormap-status-bar" class="floormap-status-bar mt-4">
+        <div class="status-bar-item">
+            <i class="bi bi-router text-primary"></i>
+            <span class="status-bar-label">Access Points:</span>
+            <span id="stat-scanners-count" class="status-bar-val">0</span>
+        </div>
+        <div class="status-bar-divider"></div>
+        <div class="status-bar-item">
+            <i class="bi bi-broadcast text-info"></i>
+            <span class="status-bar-label">Beacons:</span>
+            <span id="stat-beacons-count" class="status-bar-val">0</span>
+        </div>
+        <div class="status-bar-divider"></div>
+        <div class="status-bar-item">
+            <i class="bi bi-check-circle-fill text-success"></i>
+            <span class="status-bar-label">Online:</span>
+            <span id="stat-online-count" class="status-bar-val text-success">0</span>
+        </div>
+        <div class="status-bar-divider"></div>
+        <div class="status-bar-item">
+            <i class="bi bi-x-circle-fill text-danger"></i>
+            <span class="status-bar-label">Offline:</span>
+            <span id="stat-offline-count" class="status-bar-val text-danger">0</span>
+        </div>
+        <div class="status-bar-divider"></div>
+        <div class="status-bar-item">
+            <i class="bi bi-battery-charging text-warning"></i>
+            <span class="status-bar-label">Low Battery:</span>
+            <span id="stat-low-battery-count" class="status-bar-val text-warning">0</span>
+        </div>
+        <div class="status-bar-divider"></div>
+        <div class="status-bar-item ms-auto">
+            <i class="bi bi-clock-history text-muted"></i>
+            <span class="status-bar-label">Last Update:</span>
+            <span id="stat-last-update-time" class="status-bar-val text-muted">Just now</span>
+        </div>
+    </footer>
+</div>
+
+@section Scripts {
+    <!-- SignalR Client Script -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
+    <script src="~/js/floormap.js" asp-append-version="true"></script>
+}
