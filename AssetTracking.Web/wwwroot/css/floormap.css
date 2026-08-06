@@ -752,3 +752,41 @@
         margin-bottom: 1rem;
     }
 }
+
+/* Marker update flash animation */
+@keyframes markerFlash {
+    0% { filter: brightness(1.8); transform: scale(1.2); }
+    100% { filter: brightness(1); transform: scale(1); }
+}
+.marker-flash {
+    animation: markerFlash 0.5s ease-out !important;
+}
+
+/* Admin Edit Mode Styles */
+.dragging-active {
+    user-select: none !important;
+    -webkit-user-select: none !important;
+    -moz-user-select: none !important;
+    -ms-user-select: none !important;
+}
+
+.edit-mode-active .scanner-marker {
+    cursor: grab !important;
+    border-color: #f59e0b !important; /* Amber border to indicate editability */
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.6) !important;
+}
+
+.edit-mode-active .scanner-marker:hover {
+    transform: translate(-50%, -50%) scale(1.25) !important;
+    border-color: #fbbf24 !important;
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.95) !important;
+}
+
+.edit-mode-active .scanner-marker.dragging {
+    cursor: grabbing !important;
+    transform: translate(-50%, -50%) scale(1.35) !important;
+    background: #d97706 !important;
+    border-color: #ffffff !important;
+    box-shadow: 0 0 25px rgba(245, 158, 11, 1), 0 0 10px #ffffff !important;
+    z-index: 9999 !important;
+}

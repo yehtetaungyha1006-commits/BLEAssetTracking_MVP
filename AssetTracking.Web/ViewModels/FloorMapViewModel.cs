@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace AssetTracking.Web.Models
+namespace AssetTracking.Web.ViewModels
 {
     /// <summary>
     /// View Model representing the real-time data payload for the Floor Map module.
@@ -25,6 +25,8 @@ namespace AssetTracking.Web.Models
         public string Floor { get; set; } = string.Empty;
         public string Location { get; set; } = string.Empty;
         public bool IsOnline { get; set; }
+        public double? MapXPercent { get; set; }
+        public double? MapYPercent { get; set; }
     }
 
     /// <summary>

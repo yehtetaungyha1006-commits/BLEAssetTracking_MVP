@@ -1,6 +1,6 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
-using AssetTracking.Web.Models;
+using AssetTracking.Web.ViewModels;
 
 namespace AssetTracking.Web.Controllers;
 

@@ -1,11 +1,11 @@
-@model AssetTracking.Web.Models.FloorMapViewModel
+@model AssetTracking.Web.ViewModels.FloorMapViewModel
 @{
     ViewData["Title"] = "Floor Map";
     var jsonOptions = new System.Text.Json.JsonSerializerOptions
     {
         PropertyNamingPolicy = System.Text.Json.JsonNamingPolicy.CamelCase
     };
-    var jsonData = System.Text.Json.JsonSerializer.Serialize(Model ?? new AssetTracking.Web.Models.FloorMapViewModel(), jsonOptions);
+    var jsonData = System.Text.Json.JsonSerializer.Serialize(Model ?? new AssetTracking.Web.ViewModels.FloorMapViewModel(), jsonOptions);
 }
 
 <link rel="stylesheet" href="~/css/floormap.css" asp-append-version="true" />
@@ -24,36 +24,58 @@
     }
 
     <!-- Header with Filters & SignalR Status -->
-    <header class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 pb-3" style="border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));">
-        <div class="mb-3 mb-md-0">
-            <h1 class="h2 fw-bold text-white mb-1">Floor Map</h1>
-            <p class="text-muted mb-0">Real-time BLE Beacon Tracking</p>
+    <!-- Floor Map Header -->
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 pb-2" style="border-bottom: 1px solid var(--border-color);">
+        <div>
+            <h2 class="h5 fw-bold text-white mb-0">Floor Map Dashboard</h2>
         </div>
-
         <div class="d-flex align-items-center gap-3 flex-wrap">
-            <!-- SignalR Connection Status Indicator -->
-            <div id="floormap-signalr-status" class="floormap-signalr-status status-connecting">
-                <span class="status-dot"></span>
-                <span id="signalr-status-text">Connecting...</span>
+            <!-- SignalR Status -->
+            <div class="status-badge-custom py-1">
+                <span id="floormap-signalr-status-dot" class="status-badge-dot connecting"></span>
+                <span>SignalR: <strong id="signalr-status-text" class="text-white">Connecting...</strong></span>
             </div>
 
-            <!-- Building & Floor Filter Dropdowns -->
+            <!-- Dropdown Filters -->
             <div class="floormap-filter-group">
                 <div class="floormap-filter-item">
-                    <label for="building-filter" class="floormap-filter-label">Building:</label>
+                    <label for="building-filter" class="floormap-filter-label text-muted" style="font-size: 0.8rem;">Building:</label>
                     <select id="building-filter" class="form-select form-select-sm floormap-select" aria-label="Building Filter">
-                        <!-- Populated dynamically via floormap.js -->
                     </select>
                 </div>
                 <div class="floormap-filter-item">
-                    <label for="floor-filter" class="floormap-filter-label">Floor:</label>
+                    <label for="floor-filter" class="floormap-filter-label text-muted" style="font-size: 0.8rem;">Floor:</label>
                     <select id="floor-filter" class="form-select form-select-sm floormap-select" aria-label="Floor Filter">
-                        <!-- Populated dynamically via floormap.js -->
                     </select>
                 </div>
+                <button id="btn-edit-mode" class="btn btn-sm btn-outline-info d-flex align-items-center gap-1 ms-2" style="border-radius: 0.5rem; font-weight: 500;">
+                    <i class="bi bi-pencil-square"></i> Edit AP Positions
+                </button>
             </div>
         </div>
-    </header>
+    </div>
+
+    <!-- Edit Mode Active Indicator Banner -->
+    <div id="edit-mode-indicator" class="alert alert-info border-0 mb-4 shadow-sm rounded-3 d-none align-items-center justify-content-between p-3" style="background-color: rgba(13, 202, 240, 0.1); border-left: 4px solid #0dcaf0 !important;">
+        <div class="d-flex align-items-center gap-2">
+            <span class="spinner-grow spinner-grow-sm text-info flex-shrink-0" role="status" aria-hidden="true" style="animation-duration: 1.5s;"></span>
+            <span class="text-white"><strong>Admin Edit Mode Active</strong>: Drag the blue Access Point markers to reposition them. Beacon markers will follow their selected Access Point. Accidental text selection is disabled. <small class="text-muted d-block mt-1">Please add authentication before using this feature in production.</small></span>
+        </div>
+        <div id="edit-actions-container" class="d-flex align-items-center gap-2 flex-shrink-0">
+            <button id="btn-save-positions" class="btn btn-sm btn-success px-3" style="border-radius: 0.5rem; font-weight: 500;">
+                <i class="bi bi-check-lg"></i> Save
+            </button>
+            <button id="btn-cancel-positions" class="btn btn-sm btn-secondary px-3" style="border-radius: 0.5rem; font-weight: 500;">
+                <i class="bi bi-x-lg"></i> Cancel
+            </button>
+        </div>
+    </div>
+
+    <!-- Unmapped Warnings Banner -->
+    <div id="unmapped-warnings" class="alert alert-warning border-0 mb-4 shadow-sm rounded-3 d-none align-items-center p-3" style="background-color: rgba(255, 193, 7, 0.1); border-left: 4px solid #ffc107 !important;">
+        <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5"></i>
+        <div class="text-white" id="unmapped-warnings-text"></div>
+    </div>
 
     <!-- Main Content Layout: Left Panel (Beacon List 28%) & Right Panel (Floor Map 72%) -->
     <div class="row g-4">
@@ -81,10 +103,16 @@
         <!-- RIGHT PANEL: Building Floor Plan (72%) -->
         <div class="col-12 col-lg-8 floormap-col-right">
             <div class="floormap-panel position-relative">
-                <div class="floormap-panel-header">
-                    <h2 class="floormap-panel-title">
+                <div class="floormap-panel-header d-flex justify-content-between align-items-center flex-wrap gap-2">
+                    <h2 class="floormap-panel-title m-0">
                         <i class="bi bi-map"></i> Building Floor Plan
                     </h2>
+                    <!-- Legend -->
+                    <div class="d-flex align-items-center gap-3 text-muted" style="font-size: 0.8rem; font-weight: 500;">
+                        <span class="d-flex align-items-center gap-1"><span class="status-badge-dot" style="background-color: #10b981; box-shadow: 0 0 6px #10b981; animation: none; width: 8px; height: 8px;"></span> Online Beacon</span>
+                        <span class="d-flex align-items-center gap-1"><span class="status-badge-dot" style="background-color: #ef4444; box-shadow: 0 0 6px #ef4444; animation: none; width: 8px; height: 8px;"></span> Offline Beacon</span>
+                        <span class="d-flex align-items-center gap-1"><span class="status-badge-dot" style="background-color: #3b82f6; box-shadow: 0 0 6px #3b82f6; animation: none; width: 8px; height: 8px;"></span> Access Point</span>
+                    </div>
                 </div>
 
                 <div class="floor-map-wrapper">
@@ -184,29 +212,29 @@
                         </div>
 
                         <!-- Toilet -->
-                        <div class="room-cell area-training">
+                        <div class="room-cell area-exit">
                             <div class="room-header">
                                 <i class="bi bi-people"></i>
                                 <span>ห้องอบรม</span>
                             </div>
-                            <div id="markers-training" class="room-markers"></div>
+                            <div id="markers-exit" class="room-markers"></div>
                         </div>
 
-                        <div class="room-cell area-training">
+                        <div class="room-cell area-corridor-east">
                             <div class="room-header">
                                 <i class="bi bi-people"></i>
                                 <span>ห้องอบรม 1</span>
                             </div>
-                            <div id="markers-training" class="room-markers"></div>
+                            <div id="markers-corridor-east" class="room-markers"></div>
                         </div>
 
                         
-                        <div class="room-cell area-training">
+                        <div class="room-cell area-toilet">
                             <div class="room-header">
                                 <i class="bi bi-people"></i>
                                 <span>ห้องน้ำ</span>
                             </div>
-                            <div id="markers-training" class="room-markers"></div>
+                            <div id="markers-toilet" class="room-markers"></div>
                         </div>
                     </div>
 

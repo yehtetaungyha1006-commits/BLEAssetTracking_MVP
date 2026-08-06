@@ -1,4 +1,4 @@
-namespace AssetTracking.Web.Models;
+namespace AssetTracking.Web.ViewModels;
 
 public class ErrorViewModel
 {

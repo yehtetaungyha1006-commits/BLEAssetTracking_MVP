@@ -25,27 +25,84 @@ let activeSearchQuery = "";
 // SignalR Connection instance reference
 let signalRConnection = null;
 
-// Room area mapping lookup dictionary (Normalized lowercase string -> CSS Grid room area ID)
-const LOCATION_ROOM_MAP = {
-    "sitel": "sitel",
-    "sitel room": "sitel",
-    "meeting": "meeting",
-    "meeting room": "meeting",
-    "storage": "storage",
-    "storage room": "storage",
-    "corridor": "corridor",
-    "hallway": "corridor",
-    "elevator": "elevator",
-    "lift": "elevator",
-    "toilet": "toilet",
-    "restroom": "toilet",
-    "bathroom": "toilet",
-    "exit": "exit",
-    "emergency exit": "exit",
-    "corridor (east)": "corridor-east",
-    "corridor east": "corridor-east",
-    "east corridor": "corridor-east"
+// Admin Edit Mode state
+let isEditModeActive = false;
+let originalScannerPositions = {};
+let pendingChanges = {};
+
+// Explicit coordinate percentage positions for each map area
+const accessPointPositions = {
+    sitel: { x: 18, y: 28 },
+    room617: { x: 48, y: 28 },
+    storage: { x: 78, y: 28 },
+    corridor: { x: 45, y: 52 },
+    training: { x: 20, y: 76 },
+    training1: { x: 50, y: 76 },
+    toilet: { x: 79, y: 76 },
+    elevator: { x: 91, y: 52 }
 };
+
+
+/**
+ * Normalize Thai/English location names and return uniform keys.
+ */
+function normalizeLocation(location) {
+    if (!location) return "";
+    let loc = String(location).trim().replace(/\s+/g, ' ').toLowerCase();
+
+    // Alias mapping
+    if (loc === "ห้อง 617" || loc === "ห้องประชุม 617" || loc === "ห้อง ประชุม 617" || loc === "617" || loc === "room 617" || loc === "room617") {
+        return "room617";
+    }
+    if (loc === "ห้อง sitel" || loc === "sitel" || loc === "sitel room" || loc === "sitel_room" || loc === "ห้องsitel" || loc === "ห้อง sitel") {
+        return "sitel";
+    }
+    if (loc === "ทางเดิน" || loc === "corridor" || loc === "hallway") {
+        return "corridor";
+    }
+    if (loc === "ห้องเก็บของ" || loc === "storage" || loc === "storage room" || loc === "storage_room" || loc === "ห้อง เก็บของ") {
+        return "storage";
+    }
+    if (loc === "ลิฟต์" || loc === "elevator" || loc === "lift") {
+        return "elevator";
+    }
+    if (loc === "ห้องอบรม" || loc === "training" || loc === "training room" || loc === "training_room" || loc === "ห้อง อบรม") {
+        return "training";
+    }
+    if (loc === "ห้องอบรม 1" || loc === "ห้องอบรม1" || loc === "training1" || loc === "training 1" || loc === "ห้อง อบรม 1") {
+        return "training1";
+    }
+    if (loc === "ห้องน้ำ" || loc === "toilet" || loc === "restroom" || loc === "bathroom" || loc === "ห้อง น้ำ") {
+        return "toilet";
+    }
+    return loc;
+}
+
+/**
+ * Retrieve absolute coordinates by Location name, logging console warning for unmapped ones.
+ */
+function getPositionByLocation(location, scannerId) {
+    const key = normalizeLocation(location);
+    if (accessPointPositions[key]) {
+        return accessPointPositions[key];
+    }
+    console.warn(`Unmapped Access Point location | ScannerId: ${scannerId || "Unknown"} | Location: ${location}`);
+    return null;
+}
+
+function getGridAreaClassByNormalizedLocation(normalizedLoc) {
+    const mapping = {
+        sitel: "area-sitel",
+        room617: "area-meeting",
+        storage: "area-storage",
+        corridor: "area-corridor",
+        elevator: "area-elevator",
+        training: "area-exit",
+        training1: "area-corridor-east",
+        toilet: "area-toilet"
+    };
+    return mapping[normalizedLoc] || "area-corridor";
+}
 
 // ==========================================================================
 // INITIALIZATION
@@ -60,6 +117,7 @@ document.addEventListener("DOMContentLoaded", () => {
     applyMapFilters();
     initSignalRConnection();
     initOfflineTimeoutChecker();
+    initEditModeHandlers();
 });
 
 /**
@@ -395,9 +453,49 @@ function updateSingleBeaconMarker(beacon, isVisible) {
         return;
     }
 
-    const roomAreaKey = getRoomAreaFromLocation(beacon.location);
-    const targetContainer = document.getElementById(`markers-${roomAreaKey}`);
-    if (!targetContainer) return;
+    const grid = document.querySelector(".floor-map-grid");
+    if (!grid) return;
+
+    // Determine coordinates based on associated Access Point
+    let x = null;
+    let y = null;
+
+    if (beacon.scannerId) {
+        const scanner = floorMapData.scanners.find(s => s.scannerId === beacon.scannerId);
+        if (scanner) {
+            x = scanner.mapXPercent;
+            y = scanner.mapYPercent;
+            if (x === null || x === undefined || y === null || y === undefined) {
+                // Fallback to scanner's location mapping
+                const scannerPos = getPositionByLocation(scanner.location, scanner.scannerId);
+                if (scannerPos) {
+                    x = scannerPos.x;
+                    y = scannerPos.y;
+                }
+            }
+        }
+    }
+
+    if (x === null || y === null) {
+        // Fallback to beacon's own location mapping
+        const pos = getPositionByLocation(beacon.location, beacon.scannerId);
+        if (!pos) {
+            // Skip marker if location is unmapped
+            if (markerElem) markerElem.remove();
+            return;
+        }
+        x = pos.x;
+        y = pos.y;
+    }
+    // Offset each beacon in a circle around the room center to avoid overlapping with the AP
+    const baseIdx = floorMapData.beacons.findIndex(b => b.beaconId === beacon.beaconId || b.macAddress === beacon.macAddress);
+    if (baseIdx >= 0) {
+        const angle = baseIdx * (2 * Math.PI / 8) + Math.PI / 4;
+        const radiusX = 3.8;
+        const radiusY = 3.8;
+        x += Math.cos(angle) * radiusX;
+        y += Math.sin(angle) * radiusY;
+    }
 
     const isSelected = beaconIdStr === String(selectedBeaconId);
     const statusText = beacon.status || (beacon.isOnline ? "Online" : "Offline");
@@ -410,17 +508,29 @@ function updateSingleBeaconMarker(beacon, isVisible) {
     `;
 
     if (markerElem) {
-        if (markerElem.parentElement !== targetContainer) {
-            targetContainer.appendChild(markerElem);
+        if (markerElem.parentElement !== grid) {
+            grid.appendChild(markerElem);
         }
 
         markerElem.className = `map-marker beacon-marker ${statusClass} ${isSelected ? "selected" : ""}`;
+        markerElem.style.position = "absolute";
+        markerElem.style.left = `${x}%`;
+        markerElem.style.top = `${y}%`;
+        markerElem.style.transform = "translate(-50%, -50%)";
         markerElem.innerHTML = innerHtml;
+
+        markerElem.classList.remove("marker-flash");
+        void markerElem.offsetWidth; // force reflow
+        markerElem.classList.add("marker-flash");
     } else {
         markerElem = document.createElement("div");
         markerElem.id = `map-marker-${safeId}`;
-        markerElem.className = `map-marker beacon-marker ${statusClass} ${isSelected ? "selected" : ""}`;
+        markerElem.className = `map-marker beacon-marker ${statusClass} ${isSelected ? "selected" : ""} marker-flash`;
         markerElem.setAttribute("data-beacon-id", beaconIdStr);
+        markerElem.style.position = "absolute";
+        markerElem.style.left = `${x}%`;
+        markerElem.style.top = `${y}%`;
+        markerElem.style.transform = "translate(-50%, -50%)";
         markerElem.innerHTML = innerHtml;
 
         markerElem.addEventListener("click", (e) => {
@@ -428,7 +538,7 @@ function updateSingleBeaconMarker(beacon, isVisible) {
             highlightBeacon(beaconIdStr);
         });
 
-        targetContainer.appendChild(markerElem);
+        grid.appendChild(markerElem);
     }
 }
 
@@ -585,17 +695,18 @@ function updateStatusBar() {
 // ==========================================================================
 
 function getRoomAreaFromLocation(location) {
-    if (!location) return "corridor";
-
-    const normalized = String(location).trim().toLowerCase();
-
-    for (const key in LOCATION_ROOM_MAP) {
-        if (normalized === key || normalized.includes(key)) {
-            return LOCATION_ROOM_MAP[key];
-        }
-    }
-
-    return "corridor";
+    const key = normalizeLocation(location);
+    const mapping = {
+        sitel: "sitel",
+        room617: "meeting",
+        storage: "storage",
+        corridor: "corridor",
+        elevator: "elevator",
+        training: "exit",
+        training1: "corridor-east",
+        toilet: "toilet"
+    };
+    return mapping[key] || "corridor";
 }
 
 // ==========================================================================
@@ -748,15 +859,60 @@ function clearAllMarkers() {
     markerContainers.forEach(c => {
         c.innerHTML = "";
     });
+
+    // Clean up absolute positioned markers from the grid container
+    const grid = document.querySelector(".floor-map-grid");
+    if (grid) {
+        const absoluteMarkers = grid.querySelectorAll(".map-marker");
+        absoluteMarkers.forEach(m => m.remove());
+    }
 }
 
 function renderScannerMarkers(filteredScanners) {
     clearAllMarkers();
 
+    const warningContainer = document.getElementById("unmapped-warnings");
+    const warningText = document.getElementById("unmapped-warnings-text");
+    if (warningContainer) {
+        warningContainer.classList.add("d-none");
+        if (warningText) warningText.innerHTML = "";
+    }
+    const unmappedScanners = [];
+
+    const grid = document.querySelector(".floor-map-grid");
+    if (!grid) return;
+
+    // Track occupied positions to apply offset and avoid overlapping markers
+    const occupiedPositions = {};
+
     filteredScanners.forEach((scanner, index) => {
-        const roomAreaKey = getRoomAreaFromLocation(scanner.location);
-        const container = document.getElementById(`markers-${roomAreaKey}`);
-        if (!container) return;
+        let x = scanner.mapXPercent;
+        let y = scanner.mapYPercent;
+
+        if (x === null || x === undefined || y === null || y === undefined) {
+            const pos = getPositionByLocation(scanner.location, scanner.scannerId);
+            if (!pos) {
+                unmappedScanners.push(scanner);
+                return;
+            }
+            x = pos.x;
+            y = pos.y;
+        }
+
+        // Apply dynamic overlap offset ONLY if we are NOT in Edit Mode
+        if (!isEditModeActive) {
+            const posKey = `${x},${y}`;
+            const count = occupiedPositions[posKey] || 0;
+            occupiedPositions[posKey] = count + 1;
+
+            if (count > 0) {
+                const angle = (count - 1) * (2 * Math.PI / 8);
+                const radiusX = 3.5;
+                const radiusY = 3.5;
+                x += Math.cos(angle) * radiusX;
+                y += Math.sin(angle) * radiusY;
+            }
+        }
 
         const scannerName = scanner.scannerName || scanner.scannerId || "Unknown Access Point";
         const locationText = scanner.location || "Unknown Location";
@@ -765,12 +921,295 @@ function renderScannerMarkers(filteredScanners) {
         const scannerElem = document.createElement("div");
         scannerElem.className = "map-marker scanner-marker";
         scannerElem.setAttribute("title", `Access Point: ${scannerName} (${locationText})`);
+        scannerElem.style.position = "absolute";
+        scannerElem.style.left = `${x}%`;
+        scannerElem.style.top = `${y}%`;
+        scannerElem.style.transform = "translate(-50%, -50%)";
 
         scannerElem.innerHTML = `
             <span>${escapeHtml(shortLabel)}</span>
         `;
 
-        container.appendChild(scannerElem);
+        setupDraggableAP(scannerElem, scanner);
+
+        grid.appendChild(scannerElem);
+    });
+
+    if (unmappedScanners.length > 0 && warningContainer && warningText) {
+        const names = unmappedScanners.map(s => s.scannerName || s.scannerId).join(", ");
+        warningText.innerHTML = `<strong>Warning:</strong> The following Access Points have no mapped position or location fallback: ${escapeHtml(names)}`;
+        warningContainer.classList.remove("d-none");
+    }
+}
+
+// ==========================================================================
+// ADMIN EDIT MODE HANDLERS & POSITION SAVING
+// ==========================================================================
+
+function initEditModeHandlers() {
+    const btnEditMode = document.getElementById("btn-edit-mode");
+    const btnSavePositions = document.getElementById("btn-save-positions");
+    const btnCancelPositions = document.getElementById("btn-cancel-positions");
+
+    if (btnEditMode) {
+        btnEditMode.addEventListener("click", () => {
+            enterEditMode();
+        });
+    }
+
+    if (btnSavePositions) {
+        btnSavePositions.addEventListener("click", () => {
+            saveEditedPositions();
+        });
+    }
+
+    if (btnCancelPositions) {
+        btnCancelPositions.addEventListener("click", () => {
+            cancelEditMode();
+        });
+    }
+}
+
+function enterEditMode() {
+    isEditModeActive = true;
+    originalScannerPositions = {};
+    pendingChanges = {};
+
+    // Cache current scanner positions
+    floorMapData.scanners.forEach(s => {
+        originalScannerPositions[s.scannerId] = {
+            mapXPercent: s.mapXPercent,
+            mapYPercent: s.mapYPercent
+        };
+    });
+
+    // Update UI
+    const mapContainer = document.querySelector(".floor-map-grid");
+    if (mapContainer) {
+        mapContainer.classList.add("edit-mode-active");
+    }
+
+    const editModeIndicator = document.getElementById("edit-mode-indicator");
+    if (editModeIndicator) {
+        editModeIndicator.classList.remove("d-none");
+        editModeIndicator.classList.add("d-flex");
+    }
+
+    const btnEditMode = document.getElementById("btn-edit-mode");
+    if (btnEditMode) {
+        btnEditMode.classList.add("d-none");
+    }
+
+    hideBeaconPopup();
+    applyMapFilters();
+}
+
+function cancelEditMode() {
+    isEditModeActive = false;
+
+    // Restore original positions
+    floorMapData.scanners.forEach(s => {
+        const orig = originalScannerPositions[s.scannerId];
+        if (orig) {
+            s.mapXPercent = orig.mapXPercent;
+            s.mapYPercent = orig.mapYPercent;
+        }
+    });
+
+    originalScannerPositions = {};
+    pendingChanges = {};
+
+    // Update UI
+    const mapContainer = document.querySelector(".floor-map-grid");
+    if (mapContainer) {
+        mapContainer.classList.remove("edit-mode-active");
+    }
+
+    const editModeIndicator = document.getElementById("edit-mode-indicator");
+    if (editModeIndicator) {
+        editModeIndicator.classList.add("d-none");
+        editModeIndicator.classList.remove("d-flex");
+    }
+
+    const btnEditMode = document.getElementById("btn-edit-mode");
+    if (btnEditMode) {
+        btnEditMode.classList.remove("d-none");
+    }
+
+    applyMapFilters();
+}
+
+async function saveEditedPositions() {
+    const btnSave = document.getElementById("btn-save-positions");
+    const btnCancel = document.getElementById("btn-cancel-positions");
+
+    if (btnSave) btnSave.disabled = true;
+    if (btnCancel) btnCancel.disabled = true;
+
+    const scannerIdsToUpdate = Object.keys(pendingChanges);
+
+    if (scannerIdsToUpdate.length === 0) {
+        exitEditModeAfterSaveSuccess();
+        return;
+    }
+
+    let hasErrors = false;
+
+    for (const scannerId of scannerIdsToUpdate) {
+        const change = pendingChanges[scannerId];
+        try {
+            const response = await fetch(`/api/accesspoints/${encodeURIComponent(scannerId)}/position`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    xPercent: change.xPercent,
+                    yPercent: change.yPercent
+                })
+            });
+
+            if (!response.ok) {
+                hasErrors = true;
+                console.error(`Failed to update position for scanner ${scannerId}: ${response.statusText}`);
+            }
+        } catch (err) {
+            hasErrors = true;
+            console.error(`Error saving position for scanner ${scannerId}:`, err);
+        }
+    }
+
+    if (hasErrors) {
+        alert("Some or all position changes failed to save. Reverting to original positions.");
+        cancelEditMode();
+    } else {
+        exitEditModeAfterSaveSuccess();
+    }
+}
+
+function exitEditModeAfterSaveSuccess() {
+    isEditModeActive = false;
+    originalScannerPositions = {};
+    pendingChanges = {};
+
+    const mapContainer = document.querySelector(".floor-map-grid");
+    if (mapContainer) {
+        mapContainer.classList.remove("edit-mode-active");
+    }
+
+    const editModeIndicator = document.getElementById("edit-mode-indicator");
+    if (editModeIndicator) {
+        editModeIndicator.classList.add("d-none");
+        editModeIndicator.classList.remove("d-flex");
+    }
+
+    const btnEditMode = document.getElementById("btn-edit-mode");
+    if (btnEditMode) {
+        btnEditMode.classList.remove("d-none");
+    }
+
+    const btnSave = document.getElementById("btn-save-positions");
+    const btnCancel = document.getElementById("btn-cancel-positions");
+    if (btnSave) btnSave.disabled = false;
+    if (btnCancel) btnCancel.disabled = false;
+
+    applyMapFilters();
+}
+
+function setupDraggableAP(marker, scanner) {
+    let isDraggingThis = false;
+
+    marker.addEventListener("pointerdown", (e) => {
+        if (!isEditModeActive) return;
+
+        e.preventDefault();
+        marker.setPointerCapture(e.pointerId);
+        isDraggingThis = true;
+        marker.classList.add("dragging");
+        document.body.classList.add("dragging-active");
+    });
+
+    marker.addEventListener("pointermove", (e) => {
+        if (!isEditModeActive || !isDraggingThis) return;
+
+        const grid = document.querySelector(".floor-map-grid");
+        if (!grid) return;
+
+        const gridRect = grid.getBoundingClientRect();
+        const clientX = e.clientX;
+        const clientY = e.clientY;
+
+        let xPercent = ((clientX - gridRect.left) / gridRect.width) * 100;
+        let yPercent = ((clientY - gridRect.top) / gridRect.height) * 100;
+
+        xPercent = Math.max(0, Math.min(100, xPercent));
+        yPercent = Math.max(0, Math.min(100, yPercent));
+
+        xPercent = Math.round(xPercent * 10) / 10;
+        yPercent = Math.round(yPercent * 10) / 10;
+
+        marker.style.left = `${xPercent}%`;
+        marker.style.top = `${yPercent}%`;
+
+        scanner.mapXPercent = xPercent;
+        scanner.mapYPercent = yPercent;
+
+        updateAssociatedBeaconsPositions(scanner.scannerId, xPercent, yPercent);
+    });
+
+    const handleDragEnd = (e) => {
+        if (!isDraggingThis) return;
+        isDraggingThis = false;
+        marker.releasePointerCapture(e.pointerId);
+        marker.classList.remove("dragging");
+        document.body.classList.remove("dragging-active");
+
+        const xPercent = parseFloat(marker.style.left);
+        const yPercent = parseFloat(marker.style.top);
+
+        pendingChanges[scanner.scannerId] = {
+            xPercent: xPercent,
+            yPercent: yPercent
+        };
+
+        const buildingSelect = document.getElementById("building-filter");
+        const floorSelect = document.getElementById("floor-filter");
+        const selectedBuilding = buildingSelect ? buildingSelect.value : "";
+        const selectedFloor = floorSelect ? floorSelect.value : "";
+
+        const filteredBeacons = floorMapData.beacons.filter(b =>
+            (!selectedBuilding || b.building === selectedBuilding) &&
+            (!selectedFloor || b.floor === selectedFloor) &&
+            matchesSearchQuery(b)
+        );
+        renderBeaconMarkers(filteredBeacons);
+    };
+
+    marker.addEventListener("pointerup", handleDragEnd);
+    marker.addEventListener("pointercancel", handleDragEnd);
+}
+
+function updateAssociatedBeaconsPositions(scannerId, scannerX, scannerY) {
+    floorMapData.beacons.forEach((beacon) => {
+        if (beacon.scannerId === scannerId) {
+            const safeId = getSafeDomId(beacon);
+            const markerElem = document.getElementById(`map-marker-${safeId}`);
+            if (markerElem) {
+                const baseIdx = floorMapData.beacons.findIndex(b => b.beaconId === beacon.beaconId || b.macAddress === beacon.macAddress);
+                let x = scannerX;
+                let y = scannerY;
+                if (baseIdx >= 0) {
+                    const angle = baseIdx * (2 * Math.PI / 8) + Math.PI / 4;
+                    const radiusX = 3.8;
+                    const radiusY = 3.8;
+                    x += Math.cos(angle) * radiusX;
+                    y += Math.sin(angle) * radiusY;
+                }
+
+                markerElem.style.left = `${x}%`;
+                markerElem.style.top = `${y}%`;
+            }
+        }
     });
 }
 

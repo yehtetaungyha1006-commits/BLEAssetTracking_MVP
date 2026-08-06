@@ -11,12 +11,10 @@ namespace AssetTracking.Web.Controllers
     public class BeaconsController : Controller
     {
         private readonly AppDbContext _context;
-        private readonly IConfiguration _configuration;
 
-        public BeaconsController(AppDbContext context, IConfiguration configuration)
+        public BeaconsController(AppDbContext context)
         {
             _context = context;
-            _configuration = configuration;
         }
 
         // GET: Beacons

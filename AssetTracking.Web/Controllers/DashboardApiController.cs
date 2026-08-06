@@ -13,12 +13,10 @@ namespace AssetTracking.Web.Controllers
     public class DashboardApiController : ControllerBase
     {
         private readonly AppDbContext _context;
-        private readonly IConfiguration _configuration;
 
-        public DashboardApiController(AppDbContext context, IConfiguration configuration)
+        public DashboardApiController(AppDbContext context)
         {
             _context = context;
-            _configuration = configuration;
         }
 
         [HttpGet("/api/dashboard")]

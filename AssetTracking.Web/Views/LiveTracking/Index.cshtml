@@ -325,21 +325,27 @@
         }
 
         function renderRowHtml(beacon) {
-            const isOnline = beacon.status.toLowerCase() === 'online';
-            const badgeClass = isOnline ? 'badge-online-custom' : 'badge-offline-custom';
-            const dotClass = isOnline ? 'bg-online-custom' : 'bg-offline-custom';
+            const isOnline = beacon.status.toLowerCase() === 'online' || beacon.status.toLowerCase() === 'moving';
+            const statusClass = beacon.status === 'Online' ? 'badge-on' : (beacon.status === 'Moving' ? 'badge-mov' : 'badge-off');
 
             let distanceText = "-";
             if (isOnline && beacon.estimatedDistance !== null && beacon.estimatedDistance !== undefined) {
                 distanceText = beacon.estimatedDistance.toFixed(1) + " m";
             }
 
+            // Low Battery badge color helper
+            let batteryStyle = 'color: #10B981;';
+            if (beacon.battery < 20) {
+                batteryStyle = 'color: #ef4444; font-weight: bold;';
+            } else if (beacon.battery < 50) {
+                batteryStyle = 'color: #f59e0b;';
+            }
+
             return `
                 <td class="device-name">${beacon.deviceName}</td>
                 <td class="mac-address">${beacon.macAddress}</td>
                 <td>
-                    <span class="badge-status ${badgeClass}">
-                        <span class="status-dot ${dotClass}"></span>
+                    <span class="status-badge ${statusClass}">
                         ${beacon.status}
                     </span>
                 </td>
@@ -349,7 +355,9 @@
                 <td>${beacon.location}</td>
                 <td>${getRssiMarkup(beacon.rssi)}</td>
                 <td>${distanceText}</td>
-                <td>${getBatteryMarkup(beacon.battery)}</td>
+                <td>
+                    <span style="${batteryStyle} font-weight: 500;">${beacon.battery}%</span>
+                </td>
                 <td class="font-monospace text-secondary">${beacon.lastSeen}</td>
             `;
         }
@@ -419,6 +427,7 @@
                     const macSafe = beacon.macAddress.replace(/:/g, '');
                     const row = document.getElementById(`row-${macSafe}`);
                     if (row) {
+                        row.className = isOnline ? 'row-online' : 'row-offline';
                         row.innerHTML = renderRowHtml(beacon);
                     }
                 } else {
@@ -429,6 +438,9 @@
                         if (lastSeenCell) {
                             lastSeenCell.innerText = getRelativeTimeStr(beacon.rawLastSeen);
                         }
+
+                        // Sync row class just in case
+                        row.className = isOnline ? (beacon.isMoving ? 'row-moving' : 'row-online') : 'row-offline';
 
                         if (!isOnline) {
                             const distanceCell = row.querySelector('td:nth-child(9)');
@@ -451,6 +463,8 @@
                 if (!response.ok) throw new Error('Network error');
                 const data = await response.json();
 
+                window.lastSystemUpdateTime = Date.now();
+
                 let total = data.length;
                 let online = 0;
                 let offline = 0;
@@ -459,14 +473,15 @@
                 deviceDataStore = {};
 
                 data.forEach(beacon => {
-                    const isOnline = beacon.status.toLowerCase() === 'online';
+                    const isOnline = beacon.status.toLowerCase() === 'online' || beacon.status.toLowerCase() === 'moving';
                     if (isOnline) online++; else offline++;
 
                     const key = beacon.macAddress;
                     deviceDataStore[key] = beacon;
 
                     const macSafe = key.replace(/:/g, '');
-                    rowsHtml += `<tr id="row-${macSafe}">
+                    const rowClass = beacon.status === 'Online' ? 'row-online' : (beacon.status === 'Moving' ? 'row-moving' : 'row-offline');
+                    rowsHtml += `<tr id="row-${macSafe}" class="${rowClass}">
                         ${renderRowHtml(beacon)}
                     </tr>`;
                 });
@@ -474,7 +489,11 @@
                 if (total === 0) {
                     rowsHtml = `<tr>
                         <td colspan="11" class="text-center py-5 text-muted">
-                            No tracking beacons available.
+                            <div class="d-flex flex-column align-items-center gap-2">
+                                <i class="bi bi-broadcast fs-2 text-secondary"></i>
+                                <div class="fw-semibold">No Beacon Detected</div>
+                                <div class="small text-secondary">Please ensure your Access Points are online.</div>
+                            </div>
                         </td>
                     </tr>`;
                 }
@@ -515,13 +534,16 @@
                     return;
                 }
 
+                // Reset global update timer
+                window.lastSystemUpdateTime = Date.now();
+
                 const key = data.macAddress;
                 const now = new Date();
                 
                 const updatedBeacon = {
                     deviceName: data.deviceName || "Unnamed Beacon",
                     macAddress: data.macAddress,
-                    status: "Online",
+                    status: data.status || "Online",
                     isMoving: data.isMoving,
                     scannerId: data.scannerId || "-",
                     building: data.scannerBuilding || "-",
@@ -539,7 +561,10 @@
 
                 const macSafe = key.replace(/:/g, '');
                 const row = document.getElementById(`row-${macSafe}`);
+                const rowClass = updatedBeacon.status === "Offline" ? "row-offline" : (updatedBeacon.isMoving ? "row-moving" : "row-online");
+
                 if (row) {
+                    row.className = rowClass;
                     row.innerHTML = renderRowHtml(updatedBeacon);
                     if (!prevData || prevData.status !== updatedBeacon.status || prevData.rssi !== updatedBeacon.rssi || prevData.scannerId !== updatedBeacon.scannerId) {
                         row.classList.remove('row-update-flash');
@@ -547,8 +572,15 @@
                         row.classList.add('row-update-flash');
                     }
                 } else {
+                    // Check if we need to remove the empty state row
+                    const emptyRow = trackingBody.querySelector('tr[id="empty-state-row"]') || trackingBody.querySelector('td[colspan="11"]')?.parentNode;
+                    if (emptyRow && emptyRow.parentNode) {
+                        emptyRow.parentNode.removeChild(emptyRow);
+                    }
+
                     const newRow = document.createElement('tr');
                     newRow.id = `row-${macSafe}`;
+                    newRow.className = rowClass;
                     newRow.innerHTML = renderRowHtml(updatedBeacon);
                     trackingBody.appendChild(newRow);
                 }

@@ -13,6 +13,8 @@ namespace AssetTracking.Web.Models
         public string Status { get; set; } = string.Empty;
         public DateTime? LastSeen { get; set; }
         public DateTime CreatedAt { get; set; }
+        public double? MapXPercent { get; set; }
+        public double? MapYPercent { get; set; }
 
         // Navigation property
         public ICollection<BeaconTelemetry> Telemetries { get; set; } = new List<BeaconTelemetry>();

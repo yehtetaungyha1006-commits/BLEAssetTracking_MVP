@@ -8,6 +8,7 @@ using Microsoft.Extensions.Logging;
 using AssetTracking.Web.Data;
 using AssetTracking.Web.Helpers;
 using AssetTracking.Web.Models;
+using AssetTracking.Web.ViewModels;
 
 namespace AssetTracking.Web.Controllers
 {
@@ -40,7 +41,9 @@ namespace AssetTracking.Web.Controllers
                         s.Floor,
                         s.Location,
                         s.Status,
-                        s.LastSeen
+                        s.LastSeen,
+                        s.MapXPercent,
+                        s.MapYPercent
                     })
                     .ToListAsync(cancellationToken);
 
@@ -51,7 +54,9 @@ namespace AssetTracking.Web.Controllers
                     Building = !string.IsNullOrWhiteSpace(s.Building) ? s.Building : "Unknown",
                     Floor = !string.IsNullOrWhiteSpace(s.Floor) ? s.Floor : "Unknown",
                     Location = !string.IsNullOrWhiteSpace(s.Location) ? s.Location : "Unknown Location",
-                    IsOnline = DateTimeHelper.IsOnline(s.LastSeen)
+                    IsOnline = DateTimeHelper.IsOnline(s.LastSeen),
+                    MapXPercent = s.MapXPercent,
+                    MapYPercent = s.MapYPercent
                 }).ToList();
 
                 // 2. Fetch BeaconDevices and join to their single latest Telemetry record + Scanner

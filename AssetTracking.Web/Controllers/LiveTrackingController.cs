@@ -12,12 +12,10 @@ namespace AssetTracking.Web.Controllers
     public class LiveTrackingController : Controller
     {
         private readonly AppDbContext _context;
-        private readonly IConfiguration _configuration;
 
-        public LiveTrackingController(AppDbContext context, IConfiguration configuration)
+        public LiveTrackingController(AppDbContext context)
         {
             _context = context;
-            _configuration = configuration;
         }
 
         // GET: /LiveTracking

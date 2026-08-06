@@ -11,12 +11,10 @@ namespace AssetTracking.Web.Controllers
     public class ScannersController : Controller
     {
         private readonly AppDbContext _context;
-        private readonly IConfiguration _configuration;
 
-        public ScannersController(AppDbContext context, IConfiguration configuration)
+        public ScannersController(AppDbContext context)
         {
             _context = context;
-            _configuration = configuration;
         }
 
         // GET: Scanners

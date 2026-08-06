@@ -7,18 +7,16 @@ using System.Linq;
 using System.Threading.Tasks;
 
 namespace AssetTracking.Web.Services
-{
+  {
     public class AlertEngine
     {
         private readonly AppDbContext _context;
         private readonly ILogger<AlertEngine> _logger;
-        private readonly Microsoft.Extensions.Configuration.IConfiguration _configuration;
 
-        public AlertEngine(AppDbContext context, ILogger<AlertEngine> logger, Microsoft.Extensions.Configuration.IConfiguration configuration)
+        public AlertEngine(AppDbContext context, ILogger<AlertEngine> logger)
         {
             _context = context;
             _logger = logger;
-            _configuration = configuration;
         }
 
         // Process telemetry-based alerts

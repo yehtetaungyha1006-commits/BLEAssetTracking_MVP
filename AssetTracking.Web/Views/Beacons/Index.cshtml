@@ -110,8 +110,7 @@
                         foreach (var beacon in Model)
                         {
                             bool isOnline = beacon.Status != null && beacon.Status.Equals("Online", StringComparison.OrdinalIgnoreCase);
-                            string badgeClass = isOnline ? "badge-online-custom" : "badge-offline-custom";
-                            string dotClass = isOnline ? "bg-online-custom" : "bg-offline-custom";
+                            string badgeClass = isOnline ? "badge-on" : "badge-off";
 
                             <tr>
                                 <td class="scanner-name">@(beacon.DeviceName ?? "Unnamed Beacon")</td>
@@ -119,8 +118,7 @@
                                 <td>@beacon.Major</td>
                                 <td>@beacon.Minor</td>
                                 <td>
-                                    <span class="badge-status @badgeClass">
-                                        <span class="status-dot @dotClass"></span>
+                                    <span class="status-badge @badgeClass">
                                         @(beacon.Status ?? "Offline")
                                     </span>
                                 </td>

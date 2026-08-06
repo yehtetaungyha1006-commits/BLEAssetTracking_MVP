@@ -20,7 +20,6 @@ namespace AssetTracking.Web.Controllers
         private readonly IHubContext<BeaconHub> _hubContext;
         private readonly ILogger<BeaconController> _logger;
         private readonly AlertEngine _alertEngine;
-        private readonly IConfiguration _configuration;
         private readonly IIndoorLocationService _indoorLocationService;
 
         public BeaconController(
@@ -28,14 +27,12 @@ namespace AssetTracking.Web.Controllers
             IHubContext<BeaconHub> hubContext,
             ILogger<BeaconController> logger,
             AlertEngine alertEngine,
-            IConfiguration configuration,
             IIndoorLocationService indoorLocationService)
         {
             _context = context;
             _hubContext = hubContext;
             _logger = logger;
             _alertEngine = alertEngine;
-            _configuration = configuration;
             _indoorLocationService = indoorLocationService;
         }
 

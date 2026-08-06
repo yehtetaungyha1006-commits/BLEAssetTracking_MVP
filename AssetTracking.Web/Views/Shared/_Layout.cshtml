@@ -16,6 +16,10 @@
     <!-- Bootstrap Icons -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" />
     
+    <script>
+        window.lastSystemUpdateTime = Date.now();
+    </script>
+    
     <!-- Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -278,6 +282,90 @@
             color: #ffffff !important;
             border-color: #ffffff !important;
         }
+
+        /* Global Status Badges */
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.25rem 0.65rem;
+            font-size: 0.725rem;
+            font-weight: 600;
+            border-radius: 9999px;
+            text-transform: uppercase;
+            letter-spacing: 0.025em;
+        }
+        .badge-on { background: rgba(16, 185, 129, 0.12) !important; color: #34d399 !important; border: 1px solid rgba(16, 185, 129, 0.2) !important; }
+        .badge-off { background: rgba(239, 68, 68, 0.12) !important; color: #f87171 !important; border: 1px solid rgba(239, 68, 68, 0.2) !important; }
+        .badge-mov { background: rgba(59, 130, 246, 0.12) !important; color: #60a5fa !important; border: 1px solid rgba(59, 130, 246, 0.2) !important; }
+        .badge-warn { background: rgba(245, 158, 11, 0.12) !important; color: #fbbf24 !important; border: 1px solid rgba(245, 158, 11, 0.2) !important; }
+
+        /* Unified Global Header Style */
+        .main-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1.25rem 2rem;
+            border-bottom: 1px solid var(--border-color);
+            background-color: var(--sidebar-bg);
+        }
+        .main-title {
+            font-size: 1.35rem;
+            font-weight: 700;
+            margin: 0;
+            color: #ffffff;
+            letter-spacing: -0.025em;
+        }
+        .main-subtitle {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            margin: 0.15rem 0 0 0;
+        }
+        .status-badge-custom {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--border-color);
+            border-radius: 9999px;
+            padding: 0.35rem 1rem;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+        .status-badge-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background-color: #10b981;
+            box-shadow: 0 0 8px #10b981;
+            animation: pulse-dot 1.5s infinite alternate;
+        }
+        .status-badge-dot.connecting {
+            background-color: #f59e0b;
+            box-shadow: 0 0 8px #f59e0b;
+        }
+        .status-badge-dot.disconnected {
+            background-color: #ef4444;
+            box-shadow: 0 0 8px #ef4444;
+            animation: none;
+        }
+        @@keyframes pulse-dot {
+            0% { transform: scale(0.9); opacity: 0.6; }
+            100% { transform: scale(1.2); opacity: 1; }
+        }
+        .status-badge-divider {
+            color: rgba(255, 255, 255, 0.15);
+        }
+        .status-badge-time {
+            color: var(--text-muted);
+        }
+        @@media (max-width: 767.98px) {
+            .main-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 0.75rem;
+                padding: 1rem 1.25rem;
+            }
+        }
     </style>
 </head>
 <body>
@@ -322,6 +410,21 @@
 
     <!-- Main Content Area -->
     <div class="main-wrapper">
+        <header class="main-header">
+            <div>
+                <h1 class="main-title">BLE Asset Tracking System</h1>
+                <p class="main-subtitle">Real-time Indoor Asset Monitoring</p>
+            </div>
+            <div class="system-status-container">
+                <div class="status-badge-custom">
+                    <span class="status-badge-dot" id="system-status-dot"></span>
+                    <span class="status-badge-label" id="system-status-label">Connected</span>
+                    <span class="status-badge-divider">|</span>
+                    <span class="status-badge-time" id="system-last-updated">Updated just now</span>
+                </div>
+            </div>
+        </header>
+
         <main role="main" class="container-fluid p-4">
             @RenderBody()
         </main>

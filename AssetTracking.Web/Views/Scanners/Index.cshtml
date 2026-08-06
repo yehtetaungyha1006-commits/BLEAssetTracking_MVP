@@ -187,8 +187,7 @@
                         foreach (var scanner in Model)
                         {
                             bool isOnline = string.Equals(scanner.Status, "Online", StringComparison.OrdinalIgnoreCase);
-                            string badgeClass = isOnline ? "badge-online" : "badge-offline";
-                            string dotClass = isOnline ? "bg-online" : "bg-offline";
+                            string badgeClass = isOnline ? "badge-on" : "badge-off";
 
                             <tr>
                                 <td class="scanner-id">
@@ -204,8 +203,7 @@
                                 <td>@scanner.Floor</td>
                                 <td>@scanner.Location</td>
                                  <td>
-                                    <span class="badge-status @badgeClass">
-                                        <span class="status-dot @dotClass"></span>
+                                    <span class="status-badge @badgeClass">
                                         @scanner.Status
                                     </span>
                                 </td>
