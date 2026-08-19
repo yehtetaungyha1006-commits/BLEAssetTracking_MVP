@@ -13,7 +13,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 
 builder.Services.AddScoped<AlertEngine>();
 builder.Services.AddSingleton<IIndoorLocationService, IndoorLocationService>();
-//builder.Services.AddHostedService<AlertMonitoringWorker>();
+builder.Services.AddHostedService<AlertMonitoringWorker>();
 
 var app = builder.Build();
 

@@ -121,7 +121,7 @@ namespace AssetTracking.Scanner
                     }
                 }
 
-                await Task.Delay(2000, stoppingToken);
+                await Task.Delay(1000, stoppingToken);
             }
         }
 
