@@ -103,16 +103,35 @@
     100% { transform: scale(1.2); opacity: 1; }
 }
 
-/* Panel Containers */
+/* Main Grid Layout & Panel Containers */
+.floor-map-main {
+    display: grid;
+    grid-template-columns: 320px minmax(0, 1fr);
+    gap: 20px;
+    width: 100%;
+    max-width: 100%;
+    margin-top: 1rem;
+    margin-bottom: 1rem;
+    align-items: stretch;
+}
+
+@media (max-width: 991.98px) {
+    .floor-map-main {
+        grid-template-columns: 1fr;
+    }
+}
+
+.beacon-list-card,
+.floor-plan-card,
 .floormap-panel {
     background-color: var(--card-bg, #151f32);
     border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
     border-radius: 1.25rem;
     padding: 1.25rem;
     box-shadow: 0 8px 30px 0 rgba(0, 0, 0, 0.2);
-    height: 100%;
     display: flex;
     flex-direction: column;
+    min-height: 520px;
 }
 
 .floormap-panel-header {
@@ -295,95 +314,43 @@
 }
 
 /* CSS Grid Floor Map */
+/* Image-Based Floor Map Container & Marker Layer */
 .floor-map-wrapper {
     position: relative;
-    display: flex;
-    flex-direction: column;
-    flex-grow: 1;
-}
-
-.floor-map-grid {
-    display: grid;
-    grid-template-columns: 2fr 2fr 1.2fr;
-    grid-template-rows: 200px 140px 200px;
-    grid-template-areas:
-        "sitel    meeting   storage"
-        "corridor corridor  elevator"
-        "exit     toilet    corridor-east";
-    gap: 14px;
-    background-color: rgba(15, 23, 42, 0.6);
-    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
-    border-radius: 1rem;
-    padding: 1.25rem;
-    min-height: 580px;
-    position: relative;
-}
-
-/* Room Cells */
-.room-cell {
-    background: rgba(30, 41, 59, 0.5);
-    border: 2px solid rgba(255, 255, 255, 0.1);
-    border-radius: 0.75rem;
-    padding: 0.85rem;
-    position: relative;
-    display: flex;
-    flex-direction: column;
-    justify-content: flex-start;
-    transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
+    width: 100%;
+    border-radius: 0.85rem;
     overflow: hidden;
-}
-
-.room-cell:hover {
-    background: rgba(30, 41, 59, 0.7);
-    border-color: rgba(99, 102, 241, 0.3);
-}
-
-.room-cell.highlight-room {
-    border-color: #6366f1 !important;
-    background: rgba(99, 102, 241, 0.1) !important;
-    box-shadow: 0 0 20px rgba(99, 102, 241, 0.25);
-}
-
-/* Room Specific Grid Area Assignment */
-.area-sitel { grid-area: sitel; }
-.area-meeting { grid-area: meeting; }
-.area-storage { grid-area: storage; }
-.area-corridor { grid-area: corridor; background: rgba(15, 23, 42, 0.3); border-style: dashed; }
-.area-elevator { grid-area: elevator; background: rgba(51, 65, 85, 0.4); }
-.area-toilet { grid-area: toilet; }
-.area-exit { grid-area: exit; background: rgba(239, 68, 68, 0.05); border-color: rgba(239, 68, 68, 0.2); }
-.area-corridor-east { grid-area: corridor-east; background: rgba(15, 23, 42, 0.3); border-style: dashed; }
-
-/* Room Header & Label */
-.room-header {
+    background-color: #0f172a;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    min-height: 480px;
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    font-size: 0.82rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--text-muted, #94a3b8);
-    user-select: none;
+    justify-content: center;
+}
+
+.floor-plan-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+    opacity: 1 !important;
+    filter: none !important;
+    border-radius: 0.85rem;
+    background-color: #0f172a;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    pointer-events: none !important;
+    z-index: 1;
+}
+
+.map-marker-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
     pointer-events: none;
-}
-
-.room-header i {
-    font-size: 0.95rem;
-    opacity: 0.8;
-}
-
-/* Room Marker Container inside grid cells */
-.room-markers {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    align-content: center;
-    margin-top: auto;
-    margin-bottom: auto;
-    padding: 0.4rem;
-    z-index: 2;
+    z-index: 20;
 }
 
 /* Small Circular Markers */
@@ -400,16 +367,19 @@
     transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
     user-select: none;
     box-shadow: 0 3px 8px rgba(0, 0, 0, 0.4);
-    position: relative;
+    position: absolute;
+    transform: translate(-50%, -50%);
     padding: 0;
     line-height: 1;
 }
 
-/* Scanner Marker Style - Blue Circular Marker */
-.scanner-marker {
+/* Scanner / AP Marker Style - Blue Circular Marker */
+.ap-marker, .scanner-marker {
     background: #2563eb;
     border: 2px solid #60a5fa;
     color: #ffffff;
+    pointer-events: auto !important;
+    z-index: 50;
 }
 
 .scanner-marker:hover {
@@ -708,14 +678,38 @@
 }
 
 /* Responsive Styles: Desktop ~28% / 72% ratio */
+.floor-map-layout {
+    display: grid;
+    grid-template-columns: minmax(260px, 320px) minmax(0, 1fr);
+    gap: 24px;
+    width: 100%;
+    max-width: 100%;
+}
+
+.floormap-col-left,
+.floormap-col-right {
+    min-width: 0;
+    max-width: 100%;
+}
+
 @media (min-width: 992px) {
     .floormap-col-left {
         width: 28%;
         flex: 0 0 28%;
+        max-width: 28%;
+        min-width: 0;
     }
     .floormap-col-right {
         width: 72%;
         flex: 0 0 72%;
+        max-width: 72%;
+        min-width: 0;
+    }
+}
+
+@media (max-width: 991.98px) {
+    .floor-map-layout {
+        grid-template-columns: 1fr;
     }
 }
 
@@ -763,25 +757,30 @@
 }
 
 /* Admin Edit Mode Styles */
-.dragging-active {
+.dragging-active, body.ap-editing {
     user-select: none !important;
     -webkit-user-select: none !important;
     -moz-user-select: none !important;
     -ms-user-select: none !important;
 }
 
+.edit-mode-active .ap-marker,
 .edit-mode-active .scanner-marker {
+    pointer-events: auto !important;
     cursor: grab !important;
     border-color: #f59e0b !important; /* Amber border to indicate editability */
     box-shadow: 0 0 10px rgba(245, 158, 11, 0.6) !important;
+    z-index: 100 !important;
 }
 
+.edit-mode-active .ap-marker:hover,
 .edit-mode-active .scanner-marker:hover {
     transform: translate(-50%, -50%) scale(1.25) !important;
     border-color: #fbbf24 !important;
     box-shadow: 0 0 15px rgba(245, 158, 11, 0.95) !important;
 }
 
+.edit-mode-active .ap-marker.dragging,
 .edit-mode-active .scanner-marker.dragging {
     cursor: grabbing !important;
     transform: translate(-50%, -50%) scale(1.35) !important;
@@ -789,4 +788,182 @@
     border-color: #ffffff !important;
     box-shadow: 0 0 25px rgba(245, 158, 11, 1), 0 0 10px #ffffff !important;
     z-index: 9999 !important;
+}
+
+/* ==========================================================================
+   FLOOR MAP 100VH VIEWPORT & STAGE CONTAINMENT STYLING
+   ========================================================================== */
+
+body.floor-map-view-active {
+    height: 100vh !important;
+    overflow: hidden !important;
+}
+
+body.floor-map-view-active .main-wrapper {
+    height: 100vh !important;
+    max-height: 100vh !important;
+    overflow: hidden !important;
+    display: flex !important;
+    flex-direction: column !important;
+}
+
+body.floor-map-view-active .main-header {
+    flex: 0 0 auto !important;
+    padding: 0.6rem 1.5rem !important;
+}
+
+body.floor-map-view-active .main-wrapper main {
+    flex: 1 1 auto !important;
+    min-height: 0 !important;
+    height: 0 !important;
+    display: flex !important;
+    flex-direction: column !important;
+    overflow: hidden !important;
+    padding: 0.6rem 1.25rem 0.4rem 1.25rem !important;
+}
+
+body.floor-map-view-active footer.footer {
+    display: none !important;
+}
+
+.floor-map-page {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.floormap-header {
+    flex: 0 0 auto;
+    margin-bottom: 0.4rem;
+}
+
+.floormap-filter-bar {
+    flex: 0 0 auto;
+    margin-bottom: 0.4rem;
+    padding: 0.4rem 0.8rem;
+    border-radius: 0.5rem;
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.floor-map-main-row {
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 0;
+    overflow: hidden;
+}
+
+.floormap-col-left,
+.floormap-col-right {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.floormap-panel {
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    background-color: var(--card-bg, #151f32);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-radius: 1rem;
+    padding: 0.85rem;
+}
+
+.floormap-panel-header {
+    flex: 0 0 auto;
+    margin-bottom: 0.4rem;
+    padding-bottom: 0.35rem;
+    border-bottom: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.beacon-list-container {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none !important;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+.floor-map-wrapper {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 0;
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    background-color: #0f172a;
+    border-radius: 0.75rem;
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+}
+
+.floor-plan-stage {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    max-width: 100%;
+    max-height: 100%;
+    min-height: 0;
+}
+
+.floor-plan-stage.no-image {
+    width: 100%;
+    height: 100%;
+}
+
+.floor-plan-image {
+    display: block;
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;
+    height: auto;
+    object-fit: contain;
+    user-select: none !important;
+    -webkit-user-drag: none !important;
+    pointer-events: none !important;
+    z-index: 1;
+}
+
+.map-marker-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 20;
+}
+
+.floormap-legend {
+    flex: 0 0 auto;
+    margin-top: 0.4rem;
+    padding-top: 0.35rem;
+    display: flex;
+    align-items: center;
+    gap: 1.25rem;
+}
+
+.floormap-status-bar {
+    flex: 0 0 auto;
+    margin-top: 0.4rem;
+    padding: 0.35rem 1rem;
+    background: rgba(15, 23, 42, 0.6);
+    border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+    border-radius: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    font-size: 0.8rem;
+    overflow-x: auto;
 }

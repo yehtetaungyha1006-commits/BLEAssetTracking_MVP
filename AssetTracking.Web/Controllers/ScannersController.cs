@@ -20,7 +20,11 @@ namespace AssetTracking.Web.Controllers
         // GET: Scanners
         public async Task<IActionResult> Index()
         {
-            var scanners = await _context.Scanners.ToListAsync();
+            var scanners = await _context.Scanners
+                .Include(s => s.BuildingRef)
+                .Include(s => s.FloorRef)
+                .ToListAsync();
+
             foreach (var scanner in scanners)
             {
                 scanner.Status = AssetTracking.Web.Helpers.DateTimeHelper.IsOnline(scanner.LastSeen) ? "Online" : "Offline";
@@ -42,28 +46,50 @@ namespace AssetTracking.Web.Controllers
                 return NotFound();
             }
 
+            await PopulateLocationDropdownsViewBag(scanner.BuildingId, scanner.Building);
             return View(scanner);
         }
 
         // POST: Scanners/Edit/5
         [HttpPost]
         [ValidateAntiForgeryToken]
-        public async Task<IActionResult> Edit(string id, [Bind("ScannerId,Building,Floor,Location")] ScannerDevice scanner)
+        public async Task<IActionResult> Edit(string id, [Bind("ScannerId,BuildingId,FloorId,Building,Floor,Location")] ScannerDevice scanner)
         {
             if (id != scanner.ScannerId)
             {
                 return NotFound();
             }
 
-            // Perform manual validations on non-empty fields
-            if (string.IsNullOrWhiteSpace(scanner.Building))
+            Building? selectedBuilding = null;
+            if (scanner.BuildingId.HasValue && scanner.BuildingId > 0)
+            {
+                selectedBuilding = await _context.Buildings.FindAsync(scanner.BuildingId.Value);
+            }
+            else if (!string.IsNullOrWhiteSpace(scanner.Building))
+            {
+                selectedBuilding = await _context.Buildings.FirstOrDefaultAsync(b => b.BuildingName.ToLower() == scanner.Building.Trim().ToLower());
+            }
+
+            Floor? selectedFloor = null;
+            if (scanner.FloorId.HasValue && scanner.FloorId > 0)
+            {
+                selectedFloor = await _context.Floors.FindAsync(scanner.FloorId.Value);
+            }
+            else if (!string.IsNullOrWhiteSpace(scanner.Floor) && selectedBuilding != null)
+            {
+                selectedFloor = await _context.Floors.FirstOrDefaultAsync(f => f.BuildingId == selectedBuilding.BuildingId && f.FloorName.ToLower() == scanner.Floor.Trim().ToLower());
+            }
+
+            if (selectedBuilding == null)
             {
                 ModelState.AddModelError(nameof(scanner.Building), "Building is required.");
             }
-            if (string.IsNullOrWhiteSpace(scanner.Floor))
+
+            if (selectedFloor == null)
             {
                 ModelState.AddModelError(nameof(scanner.Floor), "Floor is required.");
             }
+
             if (string.IsNullOrWhiteSpace(scanner.Location))
             {
                 ModelState.AddModelError(nameof(scanner.Location), "Location is required.");
@@ -79,9 +105,11 @@ namespace AssetTracking.Web.Controllers
                         return NotFound();
                     }
 
-                    // Update only Building, Floor, Location
-                    existingScanner.Building = scanner.Building;
-                    existingScanner.Floor = scanner.Floor;
+                    // Update relational FKs and legacy string properties
+                    existingScanner.BuildingId = selectedBuilding?.BuildingId;
+                    existingScanner.FloorId = selectedFloor?.FloorId;
+                    existingScanner.Building = selectedBuilding?.BuildingName ?? scanner.Building ?? "Unknown";
+                    existingScanner.Floor = selectedFloor?.FloorName ?? scanner.Floor ?? "Unknown";
                     existingScanner.Location = scanner.Location;
 
                     _context.Update(existingScanner);
@@ -100,7 +128,31 @@ namespace AssetTracking.Web.Controllers
                 }
                 return RedirectToAction(nameof(Index));
             }
+
+            await PopulateLocationDropdownsViewBag(selectedBuilding?.BuildingId ?? scanner.BuildingId, selectedBuilding?.BuildingName ?? scanner.Building);
             return View(scanner);
+        }
+
+        private async Task PopulateLocationDropdownsViewBag(int? selectedBuildingId, string? selectedBuildingName)
+        {
+            var buildings = await _context.Buildings
+                .AsNoTracking()
+                .Where(b => b.IsActive)
+                .OrderBy(b => b.BuildingName)
+                .ToListAsync();
+
+            ViewBag.Buildings = buildings;
+
+            int buildingIdFilter = selectedBuildingId ?? (buildings.FirstOrDefault(b => b.BuildingName.Equals(selectedBuildingName, StringComparison.OrdinalIgnoreCase))?.BuildingId ?? buildings.FirstOrDefault()?.BuildingId ?? 0);
+
+            var floors = await _context.Floors
+                .AsNoTracking()
+                .Where(f => f.IsActive && (buildingIdFilter == 0 || f.BuildingId == buildingIdFilter))
+                .OrderBy(f => f.FloorNumber ?? 999)
+                .ThenBy(f => f.FloorName)
+                .ToListAsync();
+
+            ViewBag.Floors = floors;
         }
 
         private bool ScannerExists(string id)

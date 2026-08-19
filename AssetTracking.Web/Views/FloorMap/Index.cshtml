@@ -10,56 +10,118 @@
 
 <link rel="stylesheet" href="~/css/floormap.css" asp-append-version="true" />
 
+<style>
+    .beacons-header h2 {
+        font-weight: 700;
+        font-size: 1.5rem;
+        background: linear-gradient(to right, #ffffff, #cbd5e1) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
+    }
+
+    .floormap-filter-bar {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 0.65rem 1rem;
+        margin-bottom: 1rem;
+    }
+</style>
+
 <script id="floorMapData" type="application/json">
     @Html.Raw(jsonData)
 </script>
 
-<div class="px-2">
+<div class="scanners-container container-fluid">
     @if (ViewBag.ErrorMessage != null)
     {
-        <div class="alert alert-danger bg-danger text-white border-0 mb-4 shadow-sm rounded-3 d-flex align-items-center" role="alert">
-            <i class="bi bi-exclamation-triangle-fill me-2 fs-5"></i>
-            <div>@ViewBag.ErrorMessage</div>
+        <div class="alert alert-danger bg-danger text-white border-0 mb-3 py-2 px-3 shadow-sm rounded-3 d-flex align-items-center" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2 fs-6"></i>
+            <div class="small">@ViewBag.ErrorMessage</div>
         </div>
     }
 
-    <!-- Header with Filters & SignalR Status -->
-    <!-- Floor Map Header -->
-    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3 pb-2" style="border-bottom: 1px solid var(--border-color);">
-        <div>
-            <h2 class="h5 fw-bold text-white mb-0">Floor Map Dashboard</h2>
+    <!-- Toast Notification Container -->
+    <div id="floormap-toast" class="toast align-items-center text-white bg-success border-0 position-fixed bottom-0 end-0 m-3 shadow-lg" role="alert" aria-live="assertive" aria-atomic="true" style="z-index: 1100;">
+        <div class="d-flex">
+            <div id="floormap-toast-body" class="toast-body fw-bold">
+                Action completed successfully.
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
         </div>
-        <div class="d-flex align-items-center gap-3 flex-wrap">
-            <!-- SignalR Status -->
-            <div class="status-badge-custom py-1">
+    </div>
+
+    <!-- Unified Page Header -->
+    <div class="beacons-header mb-3 d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <div>
+            <h2 class="mb-0">Floor Map</h2>
+            <p class="text-muted mb-0 small">Manage buildings, floors and monitor BLE assets by location.</p>
+        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+            <!-- SignalR Connection Badge -->
+            <div class="status-badge-custom py-1 me-1">
                 <span id="floormap-signalr-status-dot" class="status-badge-dot connecting"></span>
-                <span>SignalR: <strong id="signalr-status-text" class="text-white">Connecting...</strong></span>
+                <span class="small">SignalR: <strong id="signalr-status-text" class="text-white">Connecting...</strong></span>
             </div>
 
-            <!-- Dropdown Filters -->
-            <div class="floormap-filter-group">
-                <div class="floormap-filter-item">
-                    <label for="building-filter" class="floormap-filter-label text-muted" style="font-size: 0.8rem;">Building:</label>
-                    <select id="building-filter" class="form-select form-select-sm floormap-select" aria-label="Building Filter">
+            <!-- Primary Action Buttons -->
+            <a href="/Buildings/Create" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1 px-3 py-1">
+                <i class="bi bi-plus-circle"></i> Add Building
+            </a>
+            <a href="/Floors/Create" class="btn btn-primary btn-sm d-inline-flex align-items-center gap-1 px-3 py-1">
+                <i class="bi bi-plus-circle"></i> Add Floor
+            </a>
+            <a href="/Buildings" class="btn btn-outline-light btn-sm d-inline-flex align-items-center gap-1 px-3 py-1">
+                <i class="bi bi-building"></i> Buildings
+            </a>
+            <a href="/Floors" class="btn btn-outline-light btn-sm d-inline-flex align-items-center gap-1 px-3 py-1">
+                <i class="bi bi-layers"></i> Floors
+            </a>
+        </div>
+    </div>
+
+    <!-- Single Top Filter Toolbar -->
+    <div class="floormap-filter-bar">
+        <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+            <div class="d-flex align-items-center gap-3 flex-wrap flex-grow-1">
+                <!-- Building Selector -->
+                <div class="d-flex align-items-center gap-2">
+                    <label for="building-filter" class="label-custom m-0 text-nowrap small"><i class="bi bi-building me-1"></i>Building:</label>
+                    <select id="building-filter" class="form-select input-custom py-1 text-sm" style="min-width: 160px;" aria-label="Building Filter">
                     </select>
                 </div>
-                <div class="floormap-filter-item">
-                    <label for="floor-filter" class="floormap-filter-label text-muted" style="font-size: 0.8rem;">Floor:</label>
-                    <select id="floor-filter" class="form-select form-select-sm floormap-select" aria-label="Floor Filter">
+
+                <!-- Floor Selector -->
+                <div class="d-flex align-items-center gap-2">
+                    <label for="floor-filter" class="label-custom m-0 text-nowrap small"><i class="bi bi-layers me-1"></i>FloorName:</label>
+                    <select id="floor-filter" class="form-select input-custom py-1 text-sm" style="min-width: 140px;" aria-label="Floor Filter">
                     </select>
                 </div>
-                <button id="btn-edit-mode" class="btn btn-sm btn-outline-info d-flex align-items-center gap-1 ms-2" style="border-radius: 0.5rem; font-weight: 500;">
+
+                <!-- Search Beacon -->
+                <div class="position-relative flex-grow-1" style="max-width: 280px;">
+                    <input type="text" id="beacon-search-input" class="form-control input-custom py-1 pe-4 text-sm" placeholder="Search Beacon..." aria-label="Search Beacon">
+                    <i class="bi bi-search position-absolute top-50 end-0 translate-middle-y me-2 text-muted" style="font-size: 0.8rem; pointer-events: none;"></i>
+                </div>
+            </div>
+
+            <div class="d-flex align-items-center gap-2 flex-wrap ms-auto">
+                <button id="btn-open-upload-map" class="btn btn-outline-light btn-sm d-flex align-items-center gap-1" type="button" data-bs-toggle="modal" data-bs-target="#uploadFloorMapModal">
+                    <i class="bi bi-upload"></i> Upload Map
+                </button>
+
+                <button id="btn-edit-mode" class="btn btn-outline-info btn-sm d-flex align-items-center gap-1" style="border-radius: 0.5rem; font-weight: 600;">
                     <i class="bi bi-pencil-square"></i> Edit AP Positions
                 </button>
             </div>
         </div>
     </div>
 
-    <!-- Edit Mode Active Indicator Banner -->
-    <div id="edit-mode-indicator" class="alert alert-info border-0 mb-4 shadow-sm rounded-3 d-none align-items-center justify-content-between p-3" style="background-color: rgba(13, 202, 240, 0.1); border-left: 4px solid #0dcaf0 !important;">
+    <!-- Admin Edit Mode Indicator Bar -->
+    <div id="edit-mode-indicator" class="alert alert-info border-0 mb-3 shadow-sm rounded-3 d-none align-items-center justify-content-between p-2 px-3" style="background-color: rgba(13, 202, 240, 0.15); border-left: 4px solid #0dcaf0 !important;">
         <div class="d-flex align-items-center gap-2">
             <span class="spinner-grow spinner-grow-sm text-info flex-shrink-0" role="status" aria-hidden="true" style="animation-duration: 1.5s;"></span>
-            <span class="text-white"><strong>Admin Edit Mode Active</strong>: Drag the blue Access Point markers to reposition them. Beacon markers will follow their selected Access Point. Accidental text selection is disabled. <small class="text-muted d-block mt-1">Please add authentication before using this feature in production.</small></span>
+            <span class="text-white small"><strong>Admin Edit Mode Active</strong>: Drag the blue Access Point markers directly over the floor plan image to reposition them.</span>
         </div>
         <div id="edit-actions-container" class="d-flex align-items-center gap-2 flex-shrink-0">
             <button id="btn-save-positions" class="btn btn-sm btn-success px-3" style="border-radius: 0.5rem; font-weight: 500;">
@@ -72,196 +134,78 @@
     </div>
 
     <!-- Unmapped Warnings Banner -->
-    <div id="unmapped-warnings" class="alert alert-warning border-0 mb-4 shadow-sm rounded-3 d-none align-items-center p-3" style="background-color: rgba(255, 193, 7, 0.1); border-left: 4px solid #ffc107 !important;">
-        <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-5"></i>
-        <div class="text-white" id="unmapped-warnings-text"></div>
+    <div id="unmapped-warnings" class="alert alert-warning border-0 mb-3 shadow-sm rounded-3 d-none align-items-center p-2" style="background-color: rgba(255, 193, 7, 0.1); border-left: 4px solid #ffc107 !important;">
+        <i class="bi bi-exclamation-triangle-fill text-warning me-2 fs-6"></i>
+        <div class="text-white small" id="unmapped-warnings-text"></div>
     </div>
 
-    <!-- Main Content Layout: Left Panel (Beacon List 28%) & Right Panel (Floor Map 72%) -->
-    <div class="row g-4">
-        <!-- LEFT PANEL: Beacon List (28%) -->
-        <div class="col-12 col-lg-4 floormap-col-left">
-            <div class="floormap-panel">
-                <div class="floormap-panel-header flex-column align-items-stretch gap-2">
-                    <div class="d-flex justify-content-between align-items-center">
-                        <h2 class="floormap-panel-title">
-                            <i class="bi bi-list-ul"></i> Beacon List
-                        </h2>
-                    </div>
-                    <!-- Search Beacon Input -->
-                    <div class="position-relative">
-                        <input type="text" id="beacon-search-input" class="form-control form-control-sm floormap-search-input" placeholder="Search Beacon..." aria-label="Search Beacon">
-                        <i class="bi bi-search position-absolute top-50 end-0 translate-middle-y me-2 text-muted" style="font-size: 0.8rem; pointer-events: none;"></i>
-                    </div>
-                </div>
-                <div id="beacon-list-container" class="beacon-list-container">
-                    <!-- Populated dynamically via floormap.js -->
-                </div>
-            </div>
-        </div>
-
-        <!-- RIGHT PANEL: Building Floor Plan (72%) -->
-        <div class="col-12 col-lg-8 floormap-col-right">
-            <div class="floormap-panel position-relative">
-                <div class="floormap-panel-header d-flex justify-content-between align-items-center flex-wrap gap-2">
-                    <h2 class="floormap-panel-title m-0">
-                        <i class="bi bi-map"></i> Building Floor Plan
+    <!-- Main Content Layout Grid -->
+    <div class="floor-map-main">
+        <!-- LEFT PANEL: Beacon List -->
+        <div class="beacon-list-card">
+            <div class="floormap-panel-header mb-2 pb-2">
+                <div class="d-flex justify-content-between align-items-center">
+                    <h2 class="floormap-panel-title fs-6 m-0">
+                        <i class="bi bi-list-ul"></i> Beacon List
                     </h2>
-                    <!-- Legend -->
-                    <div class="d-flex align-items-center gap-3 text-muted" style="font-size: 0.8rem; font-weight: 500;">
-                        <span class="d-flex align-items-center gap-1"><span class="status-badge-dot" style="background-color: #10b981; box-shadow: 0 0 6px #10b981; animation: none; width: 8px; height: 8px;"></span> Online Beacon</span>
-                        <span class="d-flex align-items-center gap-1"><span class="status-badge-dot" style="background-color: #ef4444; box-shadow: 0 0 6px #ef4444; animation: none; width: 8px; height: 8px;"></span> Offline Beacon</span>
-                        <span class="d-flex align-items-center gap-1"><span class="status-badge-dot" style="background-color: #3b82f6; box-shadow: 0 0 6px #3b82f6; animation: none; width: 8px; height: 8px;"></span> Access Point</span>
-                    </div>
                 </div>
+            </div>
+            <div class="beacon-list-container flex-grow-1 overflow-y-auto" id="beacon-list-container" style="min-height: 440px; max-height: 560px;">
+            </div>
+        </div>
 
-                <div class="floor-map-wrapper">
-                    <!-- Floating Information Popup (Two Column Grid) -->
-                    <div id="floormap-beacon-popup" class="floormap-beacon-popup d-none">
-                        <div class="popup-header">
-                            <div class="d-flex align-items-center gap-2">
-                                <i class="bi bi-broadcast text-primary"></i>
-                                <span id="popup-device-name" class="popup-title">Beacon Name</span>
-                            </div>
-                            <button type="button" class="btn-close btn-close-white btn-sm" id="popup-close-btn" aria-label="Close"></button>
-                        </div>
-                        <div class="popup-body">
-                            <div class="popup-grid">
-                                <div class="popup-item full-width">
-                                    <div class="popup-label"><i class="bi bi-qr-code"></i> MAC Address</div>
-                                    <div id="popup-mac-address" class="popup-val font-monospace">00:00:00:00:00:00</div>
-                                </div>
-                                <div class="popup-item">
-                                    <div class="popup-label"><i class="bi bi-router"></i> Access Point</div>
-                                    <div id="popup-scanner-name" class="popup-val">Access Point-01</div>
-                                </div>
-                                <div class="popup-item">
-                                    <div class="popup-label"><i class="bi bi-geo-alt"></i> Location</div>
-                                    <div id="popup-location" class="popup-val">SiTEL Room</div>
-                                </div>
-                                <div class="popup-item">
-                                    <div class="popup-label"><i class="bi bi-wifi"></i> RSSI</div>
-                                    <div id="popup-rssi" class="popup-val">-48 dBm</div>
-                                </div>
-                                <div class="popup-item">
-                                    <div class="popup-label"><i class="bi bi-battery-half"></i> Battery</div>
-                                    <div id="popup-battery" class="popup-val">92%</div>
-                                </div>
-                                <div class="popup-item">
-                                    <div class="popup-label"><i class="bi bi-ruler"></i> Est. Distance</div>
-                                    <div id="popup-distance" class="popup-val text-info fw-bold">0.8 m</div>
-                                </div>
-                                <div class="popup-item">
-                                    <div class="popup-label"><i class="bi bi-activity"></i> Status</div>
-                                    <div id="popup-status" class="popup-val fw-bold">Online</div>
-                                </div>
-                                <div class="popup-item full-width">
-                                    <div class="popup-label"><i class="bi bi-clock-history"></i> Last Seen</div>
-                                    <div id="popup-last-seen" class="popup-val">just now</div>
-                                </div>
-                            </div>
-                        </div>
+        <!-- RIGHT PANEL: Floor Plan Canvas -->
+        <div class="floor-plan-card">
+            <div class="floormap-panel-header mb-2 pb-2">
+                <h2 class="floormap-panel-title fs-6 m-0" id="floor-map-title">
+                    <i class="bi bi-map"></i> Floor Plan
+                </h2>
+                <div id="floor-map-meta" class="text-muted small">
+                    <span id="selected-building-name" class="fw-semibold text-light">--</span> /
+                    <span id="selected-floor-name" class="text-info fw-semibold">--</span>
+                </div>
+            </div>
+
+            <!-- Interactive Map Canvas Container -->
+            <div id="floor-map-wrapper" class="floor-map-wrapper flex-grow-1" style="min-height: 440px; position: relative;">
+                <div id="floor-plan-stage" class="floor-plan-stage">
+                    <!-- Base Uploaded Floor Plan Image -->
+                    <img id="floorPlanImage" class="floor-plan-image d-none" src="#" alt="Floor Plan" />
+
+                    <!-- Clean Empty State -->
+                    <div id="floormap-no-image-state" class="floormap-empty-state d-none">
+                        <i class="bi bi-image floormap-empty-icon"></i>
+                        <h4 class="floormap-empty-title">No Floor Map Uploaded</h4>
+                        <p class="floormap-empty-desc text-muted">Upload a floor map image to visualize Access Points and real-time Beacon locations.</p>
                     </div>
 
-                    <!-- HTML + CSS Grid Floor Plan -->
-                    <div class="floor-map-grid">
-                        
-                        <!-- SiTEL Room -->
-                        <div class="room-cell area-sitel">
-                            <div class="room-header">
-                                <i class="bi bi-display"></i>
-                                <span>ห้อง SiTEL</span>
-                            </div>
-                            <div id="markers-sitel" class="room-markers"></div>
-                        </div>
+                    <!-- Absolute Marker Overlay Layer for APs & Beacons -->
+                    <div id="mapMarkerLayer" class="map-marker-layer"></div>
+                </div>
+            </div>
 
-                        <!-- Meeting Room -->
-                        <div class="room-cell area-meeting">
-                            <div class="room-header">
-                                <i class="bi bi-people"></i>
-                                <span>ห้องประชุม 617</span>
-                            </div>
-                            <div id="markers-meeting" class="room-markers"></div>
-                        </div>
-
-                        <!-- Storage -->
-                        <div class="room-cell area-storage">
-                            <div class="room-header">
-                                <i class="bi bi-box-seam"></i>
-                                <span>ห้องเก็บของ</span>
-                            </div>
-                            <div id="markers-storage" class="room-markers"></div>
-                        </div>
-
-                        <!-- Corridor -->
-                        <div class="room-cell area-corridor">
-                            <div class="room-header">
-                                <i class="bi bi-bounding-box-circles"></i>
-                                <span>ทางเดิน</span>
-                            </div>
-                            <div id="markers-corridor" class="room-markers"></div>
-                        </div>
-
-                        <!-- Elevator -->
-                        <div class="room-cell area-elevator">
-                            <div class="room-header">
-                                <i class="bi bi-arrow-down-up"></i>
-                                <span>ลิฟต์</span>
-                            </div>
-                            <div id="markers-elevator" class="room-markers"></div>
-                        </div>
-
-                        <!-- Toilet -->
-                        <div class="room-cell area-exit">
-                            <div class="room-header">
-                                <i class="bi bi-people"></i>
-                                <span>ห้องอบรม</span>
-                            </div>
-                            <div id="markers-exit" class="room-markers"></div>
-                        </div>
-
-                        <div class="room-cell area-corridor-east">
-                            <div class="room-header">
-                                <i class="bi bi-people"></i>
-                                <span>ห้องอบรม 1</span>
-                            </div>
-                            <div id="markers-corridor-east" class="room-markers"></div>
-                        </div>
-
-                        
-                        <div class="room-cell area-toilet">
-                            <div class="room-header">
-                                <i class="bi bi-people"></i>
-                                <span>ห้องน้ำ</span>
-                            </div>
-                            <div id="markers-toilet" class="room-markers"></div>
-                        </div>
-                    </div>
-
-                    <!-- Compact Legend -->
-                    <div class="floormap-legend">
-                        <div class="legend-item">
-                            <span class="legend-badge scanner"></span>
-                            <span>Access Point</span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-badge online-beacon"></span>
-                            <span>Online Beacon</span>
-                        </div>
-                        <div class="legend-item">
-                            <span class="legend-badge offline-beacon"></span>
-                            <span>Offline Beacon</span>
-                        </div>
-                    </div>
+            <!-- Legend Bar -->
+            <div class="floormap-legend flex-shrink-0 mt-2">
+                <div class="legend-item">
+                    <span class="legend-badge scanner"></span>
+                    <span class="small">Access Point</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-badge online-beacon"></span>
+                    <span class="small">Active Beacon</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-badge offline-beacon"></span>
+                    <span class="small">Offline Beacon</span>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Bottom Compact Status Bar -->
-    <footer id="floormap-status-bar" class="floormap-status-bar mt-4">
+    <!-- Summary Status Bar Footer -->
+    <footer class="floormap-status-bar mt-3 py-2">
         <div class="status-bar-item">
-            <i class="bi bi-router text-primary"></i>
+            <i class="bi bi-cpu text-primary"></i>
             <span class="status-bar-label">Access Points:</span>
             <span id="stat-scanners-count" class="status-bar-val">0</span>
         </div>
@@ -296,6 +240,44 @@
             <span id="stat-last-update-time" class="status-bar-val text-muted">Just now</span>
         </div>
     </footer>
+</div>
+
+<!-- Upload Floor Map Modal -->
+<div class="modal fade" id="uploadFloorMapModal" tabindex="-1" aria-labelledby="uploadFloorMapModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content bg-dark text-white border-secondary shadow-lg rounded-3">
+            <div class="modal-header border-secondary">
+                <h5 class="modal-title fw-bold" id="uploadFloorMapModalLabel">
+                    <i class="bi bi-upload me-2 text-primary"></i>Upload Floor Map Image
+                </h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="form-upload-floor-map" enctype="multipart/form-data">
+                <div class="modal-body">
+                    <div id="upload-map-error" class="alert alert-danger d-none py-2 px-3 small rounded-2 mb-3"></div>
+
+                    <div class="mb-3">
+                        <label class="form-label text-light small fw-bold">Target Location</label>
+                        <div id="upload-map-target-text" class="form-control-plaintext text-info fw-bold font-monospace bg-secondary bg-opacity-25 px-3 py-2 rounded-2">
+                            Select a Floor...
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="floor-map-file-input" class="form-label text-light small fw-bold">Select Map Image File <span class="text-danger">*</span></label>
+                        <input type="file" class="form-control bg-secondary text-white border-0" id="floor-map-file-input" accept=".png,.jpg,.jpeg,.webp,.svg,image/svg+xml" required>
+                        <small class="text-muted d-block mt-1">Allowed formats: PNG, JPG, JPEG, WEBP, SVG. Max size: 10 MB.</small>
+                    </div>
+                </div>
+                <div class="modal-footer border-secondary">
+                    <button type="button" class="btn btn-sm btn-outline-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" id="btn-submit-upload-map" class="btn btn-sm btn-primary px-3">
+                        <i class="bi bi-cloud-upload me-1"></i> Upload Image
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
 </div>
 
 @section Scripts {

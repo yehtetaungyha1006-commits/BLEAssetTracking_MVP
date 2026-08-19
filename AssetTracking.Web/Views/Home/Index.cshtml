@@ -266,17 +266,11 @@
                 </div>
             </div>
 
-            <!-- Main Dashboard Content -->
-            <div class="row g-4">
-                <!-- Left Panel: Table and Charts -->
-                <div class="col-12 d-flex flex-column gap-4">
-                    
-                    <!-- Table Panel -->
-                    <div class="panel-card">
-                        <div class="panel-title">Tracked Devices</div>
-                        
-                        <div class="table-responsive">
-                            <table class="table-custom">
+            <!-- Tracked Devices Table Panel -->
+            <div class="panel-card mb-4">
+                <div class="panel-title mb-3">Tracked Devices</div>
+                <div class="table-responsive">
+                    <table class="table-custom">
                         <thead>
                             <tr>
                                 <th>MAC Address</th>
@@ -284,7 +278,7 @@
                                 <th>Access Point</th>
                                 <th>Building</th>
                                 <th>Floor</th>
-                                <th>Current Location</th>
+                                <th>Location</th>
                                 <th>RSSI</th>
                                 <th>Distance</th>
                                 <th>Battery</th>
@@ -299,19 +293,19 @@
                 </div>
             </div>
 
-            <!-- Charts Placeholders Panel -->
+            <!-- Charts & Recent Alerts Row -->
             <div class="row g-4">
                 <div class="col-md-6">
                     <div class="panel-card">
-                        <div class="panel-title">RSSI Signal (Live Tracking)</div>
-                        <div class="chart-container">
+                        <div class="panel-title mb-3">RSSI Signal (Live Tracking)</div>
+                        <div class="chart-container" style="height: 240px;">
                             <canvas id="rssiChart"></canvas>
                         </div>
                     </div>
                 </div>
                 <div class="col-md-6">
-                    <div class="panel-card d-flex flex-column" style="min-height: 320px;">
-                        <div class="panel-title">Recent Alerts</div>
+                    <div class="panel-card d-flex flex-column" style="min-height: 280px;">
+                        <div class="panel-title mb-3">Recent Alerts</div>
                         <div class="flex-grow-1 d-flex flex-column justify-content-between">
                             <div id="recent-alerts-container" class="w-100 d-flex flex-column gap-2">
                                 <!-- Populated via JS -->
@@ -328,8 +322,6 @@
 
         </div>
     </div>
-</div>
-</div>
 </div>
 
 @section Scripts {

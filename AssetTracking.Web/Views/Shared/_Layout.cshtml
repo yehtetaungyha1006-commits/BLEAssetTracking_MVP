@@ -2,13 +2,15 @@
     var currentController = ViewContext.RouteData.Values["controller"]?.ToString();
     var currentAction = ViewContext.RouteData.Values["action"]?.ToString();
     var isDashboardActive = (currentController == "Home" && currentAction == "Index") || currentController == "Dashboard";
+    var isFloorMapActive = currentController == "FloorMap" || currentController == "Buildings" || currentController == "Floors";
+    var isFloorMapPage = currentController == "FloorMap";
 }
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>@ViewData["Title"] - โรงพยาบาลศิริราช</title>
+    <title>@ViewData["Title"] - Siriraj ATS</title>
     <link rel="stylesheet" href="~/lib/bootstrap/dist/css/bootstrap.min.css" />
     <link rel="stylesheet" href="~/css/site.css" asp-append-version="true" />
     <link rel="stylesheet" href="~/AssetTracking.Web.styles.css" asp-append-version="true" />
@@ -36,6 +38,17 @@
             --primary: #6366f1;
         }
 
+        html,
+        body {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+
+        *, *::before, *::after {
+            box-sizing: border-box;
+        }
+
         body {
             background-color: var(--main-bg);
             background-image: 
@@ -46,7 +59,6 @@
             font-family: 'Outfit', sans-serif;
             min-height: 100vh;
             margin: 0;
-            overflow-x: hidden;
         }
 
         /* Sidebar container styles */
@@ -126,10 +138,18 @@
             min-height: 100vh;
             display: flex;
             flex-direction: column;
+            width: auto;
+            max-width: calc(100vw - 260px);
+            min-width: 0;
+            overflow-x: hidden;
         }
 
         .main-wrapper main {
             padding-bottom: 40px !important;
+            min-width: 0;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
         }
 
         /* Top navigation header for tablet/mobile */
@@ -169,6 +189,8 @@
 
             .main-wrapper {
                 margin-left: 0;
+                max-width: 100vw;
+                width: 100%;
             }
 
             .mobile-header {
@@ -181,6 +203,9 @@
         /* Adjust other page elements for dark mode layout compatibility */
         .scanners-container {
             color: var(--text-main) !important;
+            width: 100%;
+            max-width: 100%;
+            min-width: 0;
         }
 
         .scanners-header h2 {
@@ -192,6 +217,14 @@
         .card-custom {
             background-color: var(--card-bg) !important;
             border: 1px solid var(--border-color) !important;
+            max-width: 100%;
+        }
+
+        .table-responsive {
+            width: 100%;
+            max-width: 100%;
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .table-custom th {
@@ -230,6 +263,7 @@
             background-color: rgba(0, 0, 0, 0.2) !important;
             border: 1px solid var(--border-color) !important;
             color: #ffffff !important;
+            max-width: 100%;
         }
         .input-custom:focus {
             border-color: var(--primary) !important;
@@ -304,9 +338,12 @@
             display: flex;
             justify-content: space-between;
             align-items: center;
+            flex-wrap: wrap;
+            gap: 1rem;
             padding: 1.25rem 2rem;
             border-bottom: 1px solid var(--border-color);
             background-color: var(--sidebar-bg);
+            max-width: 100%;
         }
         .main-title {
             font-size: 1.35rem;
@@ -390,7 +427,7 @@
             <a class="nav-link-custom @(isDashboardActive ? "active" : "")" href="/">
                 <i class="bi bi-speedometer2"></i> Dashboard
             </a>
-            <a class="nav-link-custom @(currentController == "FloorMap" ? "active" : "")" href="/FloorMap">
+            <a class="nav-link-custom @(isFloorMapActive ? "active" : "")" href="/FloorMap">
                 <i class="bi bi-map"></i> Floor Map
             </a>
             <a class="nav-link-custom @(currentController == "Scanners" ? "active" : "")" href="/Scanners">
@@ -412,8 +449,8 @@
     <div class="main-wrapper">
         <header class="main-header">
             <div>
-                <h1 class="main-title">BLE Asset Tracking System</h1>
-                <p class="main-subtitle">Real-time Indoor Asset Monitoring</p>
+                <h1 class="main-title">Siriraj Hospital Asset Tracking System</h1>
+                <p class="main-subtitle">ระบบติดตามสถานะอุปกรณ์ครุภัณฑ์ โรงพยาบาลศิริราช</p>
             </div>
             <div class="system-status-container">
                 <div class="status-badge-custom">
@@ -425,11 +462,11 @@
             </div>
         </header>
 
-        <main role="main" class="container-fluid p-4">
+        <main role="main" class="container-fluid p-3 p-md-4">
             @RenderBody()
         </main>
 
-        <footer class="footer text-muted">
+        <footer class="footer text-muted px-4 py-3">
             &copy; 2026 - ระบบติดตามสถานะอุปกรณ์ครุภัณฑ์ โรงพยาบาลศิริราช - Siriraj Hospital Asset Tracking System
         </footer>
     </div>

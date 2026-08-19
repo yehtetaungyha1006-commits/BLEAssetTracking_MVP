@@ -4,14 +4,24 @@
 }
 
 <style>
+    .edit-beacon-wrapper {
+        width: 100%;
+        height: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        overflow-y: auto;
+        padding: 1rem;
+    }
+
     .edit-beacon-page {
-        padding: 2rem 1rem;
-        max-width: 540px;
+        width: min(100%, 520px);
         margin: 0 auto;
     }
     
     .beacon-title-container {
-        margin-bottom: 1.5rem;
+        margin-bottom: 1.25rem;
     }
 
     .beacon-title-container h2 {
@@ -29,73 +39,78 @@
         margin: 0;
     }
 
+    /* Details Card */
     .beacon-form-card {
-        background-color: var(--card-bg);
-        border: 1px solid var(--border-color);
+        background-color: var(--card-bg, #151f32);
+        border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
         border-radius: 12px;
         box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
         overflow: hidden;
     }
 
     .beacon-form-body {
-        padding: 1.5rem;
+        padding: 1.25rem 1.25rem 0.75rem 1.25rem;
     }
 
     .beacon-form-grid {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 1.25rem;
+        gap: 0.85rem;
     }
 
     .beacon-form-grid .full-width {
         grid-column: span 2;
     }
 
+    .form-group-custom {
+        margin-bottom: 0;
+    }
+
     .label-custom {
         font-weight: 600;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
         color: #94a3b8;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.35rem;
         display: block;
     }
 
     .input-custom {
-        background-color: rgba(255, 255, 255, 0.03) !important;
-        border: 1px solid var(--border-color) !important;
+        background-color: rgba(0, 0, 0, 0.2) !important;
+        border: 1px solid var(--border-color, rgba(255, 255, 255, 0.08)) !important;
         border-radius: 6px;
-        padding: 0.5rem 0.75rem;
-        font-size: 0.95rem;
+        padding: 0.45rem 0.75rem;
+        font-size: 0.9rem;
         color: #ffffff !important;
         transition: all 0.2s ease;
         width: 100%;
     }
 
     .input-custom:focus {
-        border-color: rgba(255, 255, 255, 0.25) !important;
-        background-color: rgba(255, 255, 255, 0.06) !important;
+        border-color: rgba(99, 102, 241, 0.5) !important;
+        background-color: rgba(0, 0, 0, 0.3) !important;
         outline: none;
-        box-shadow: none;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2);
     }
 
     .validation-error {
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         color: #f87171;
-        margin-top: 0.35rem;
+        margin-top: 0.25rem;
         font-weight: 500;
         display: block;
     }
 
-    /* Readonly details styling */
+    /* Readonly details section matching Delete Beacon specifications style */
     .beacon-readonly-section {
-        margin-top: 1.5rem;
+        margin-top: 1.25rem;
         border-top: 1px solid rgba(255, 255, 255, 0.08);
-        padding-top: 1.25rem;
+        padding-top: 1rem;
     }
 
     .beacon-readonly-section h5 {
-        font-size: 1.1rem;
+        font-size: 1.05rem;
         font-weight: 600;
         color: #ffffff;
         margin-bottom: 0.75rem;
@@ -116,19 +131,22 @@
     }
 
     .readonly-table td {
-        padding: 0.75rem 0.5rem;
+        padding: 0.6rem 0.5rem;
         font-size: 0.9rem;
+        vertical-align: middle;
     }
 
     .readonly-table td.label-col {
         color: #94a3b8;
         width: 35%;
         font-weight: 400;
+        padding-left: 0.25rem;
     }
 
     .readonly-table td.val-col {
         color: #ffffff;
         font-weight: 600;
+        padding-right: 0.25rem;
     }
 
     /* Status Badge */
@@ -170,10 +188,11 @@
         background-color: #94a3b8;
     }
 
+    /* Footer Action Area matching Delete Beacon card footer */
     .form-action-footer {
         background-color: rgba(0, 0, 0, 0.15);
         border-top: 1px solid rgba(255, 255, 255, 0.08);
-        padding: 1rem 1.5rem;
+        padding: 1rem 1.25rem;
         display: flex;
         justify-content: flex-end;
         gap: 0.75rem;
@@ -231,9 +250,10 @@
         transform: scale(0.98);
     }
 
+    /* Responsive adjustments */
     @@media (max-width: 576px) {
-        .edit-beacon-page {
-            padding: 1.5rem 1rem;
+        .edit-beacon-wrapper {
+            padding: 1rem 0.5rem;
         }
 
         .beacon-form-grid {
@@ -259,102 +279,104 @@
     }
 </style>
 
-<div class="edit-beacon-page">
-    <!-- Page Header -->
-    <div class="beacon-title-container text-start">
-        <h2>Edit Beacon Details</h2>
-        <p>Update registered beacon information.</p>
-    </div>
+<div class="edit-beacon-wrapper">
+    <div class="edit-beacon-page">
+        <!-- Page Header -->
+        <div class="beacon-title-container text-start">
+            <h2>Edit Beacon Details</h2>
+            <p>Update registered beacon information.</p>
+        </div>
 
-    <!-- Form Card -->
-    <div class="beacon-form-card">
-        <form asp-action="Edit" method="post">
-            <div class="beacon-form-body">
-                <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="font-size: 0.9rem; font-weight: 500;"></div>
+        <!-- Form Card -->
+        <div class="beacon-form-card">
+            <form asp-action="Edit" method="post">
+                <div class="beacon-form-body">
+                    <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="font-size: 0.9rem; font-weight: 500;"></div>
 
-                <!-- Hidden input for DeviceId to bind properly on post -->
-                <input type="hidden" asp-for="DeviceId" />
+                    <!-- Hidden input for DeviceId -->
+                    <input type="hidden" asp-for="DeviceId" />
 
-                <!-- Editable Fields -->
-                <div class="beacon-form-grid">
-                    <div class="full-width">
-                        <div class="form-group-custom">
-                            <label class="label-custom" asp-for="DeviceName">Device Name</label>
-                            <input asp-for="DeviceName" class="form-control input-custom" placeholder="e.g. Forklift Beacon 04" />
-                            <span asp-validation-for="DeviceName" class="validation-error"></span>
+                    <!-- Editable Fields Grid -->
+                    <div class="beacon-form-grid">
+                        <div class="full-width">
+                            <div class="form-group-custom">
+                                <label class="label-custom" asp-for="DeviceName">Device Name</label>
+                                <input asp-for="DeviceName" class="form-control input-custom" placeholder="e.g. Minew E7 (616-2)" />
+                                <span asp-validation-for="DeviceName" class="validation-error"></span>
+                            </div>
+                        </div>
+
+                        <div class="full-width">
+                            <div class="form-group-custom">
+                                <label class="label-custom" asp-for="MacAddress">MAC Address</label>
+                                <input asp-for="MacAddress" class="form-control input-custom" placeholder="e.g. C3:00:00:4F:89:CD" />
+                                <span asp-validation-for="MacAddress" class="validation-error"></span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="form-group-custom">
+                                <label class="label-custom" asp-for="Major">Major</label>
+                                <input asp-for="Major" type="number" class="form-control input-custom" min="0" />
+                                <span asp-validation-for="Major" class="validation-error"></span>
+                            </div>
+                        </div>
+
+                        <div>
+                            <div class="form-group-custom">
+                                <label class="label-custom" asp-for="Minor">Minor</label>
+                                <input asp-for="Minor" type="number" class="form-control input-custom" min="0" />
+                                <span asp-validation-for="Minor" class="validation-error"></span>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="full-width">
-                        <div class="form-group-custom">
-                            <label class="label-custom" asp-for="MacAddress">MAC Address</label>
-                            <input asp-for="MacAddress" class="form-control input-custom" placeholder="e.g. AA:BB:CC:DD:EE:FF" />
-                            <span asp-validation-for="MacAddress" class="validation-error"></span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div class="form-group-custom">
-                            <label class="label-custom" asp-for="Major">Major</label>
-                            <input asp-for="Major" type="number" class="form-control input-custom" min="0" />
-                            <span asp-validation-for="Major" class="validation-error"></span>
-                        </div>
-                    </div>
-
-                    <div>
-                        <div class="form-group-custom">
-                            <label class="label-custom" asp-for="Minor">Minor</label>
-                            <input asp-for="Minor" type="number" class="form-control input-custom" min="0" />
-                            <span asp-validation-for="Minor" class="validation-error"></span>
-                        </div>
+                    <!-- Read-Only Device Information Section -->
+                    <div class="beacon-readonly-section">
+                        <h5>Device Information</h5>
+                        <table class="readonly-table">
+                            <tbody>
+                                <tr>
+                                    <td class="label-col">Device ID</td>
+                                    <td class="val-col font-monospace text-secondary">@Model.DeviceId</td>
+                                </tr>
+                                <tr>
+                                    <td class="label-col">Status</td>
+                                    <td class="val-col">
+                                        @{
+                                            bool isOnline = Model.Status != null && Model.Status.Equals("Online", StringComparison.OrdinalIgnoreCase);
+                                            string statusClass = isOnline ? "online" : "offline";
+                                        }
+                                        <span class="status-badge-custom @statusClass">
+                                            <span class="status-dot-custom @statusClass"></span>
+                                            @(Model.Status ?? "Offline")
+                                        </span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td class="label-col">Last Seen</td>
+                                    <td class="val-col">@AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(Model.LastSeen)</td>
+                                </tr>
+                                <tr>
+                                    <td class="label-col">Created At</td>
+                                    <td class="val-col">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
 
-                <!-- Read-Only Section -->
-                <div class="beacon-readonly-section">
-                    <h5>Device Information</h5>
-                    <table class="readonly-table">
-                        <tbody>
-                            <tr>
-                                <td class="label-col">Device ID</td>
-                                <td class="val-col font-monospace text-secondary">@Model.DeviceId</td>
-                            </tr>
-                            <tr>
-                                <td class="label-col">Current Status</td>
-                                <td class="val-col">
-                                    @{
-                                        bool isOnline = Model.Status != null && Model.Status.Equals("Online", StringComparison.OrdinalIgnoreCase);
-                                        string statusClass = isOnline ? "online" : "offline";
-                                    }
-                                    <span class="status-badge-custom @statusClass">
-                                        <span class="status-dot-custom @statusClass"></span>
-                                        @(Model.Status ?? "Offline")
-                                    </span>
-                                </td>
-                            </tr>
-                            <tr>
-                                <td class="label-col">Last Seen</td>
-                                <td class="val-col">@AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(Model.LastSeen)</td>
-                            </tr>
-                            <tr>
-                                <td class="label-col">Created At</td>
-                                <td class="val-col">@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")</td>
-                            </tr>
-                        </tbody>
-                    </table>
+                <!-- Footer Action Area -->
+                <div class="form-action-footer">
+                    <a asp-action="Index" class="btn-cancel-custom">
+                        Cancel
+                    </a>
+                    <button type="submit" class="btn-primary-custom">
+                        Save Changes
+                    </button>
                 </div>
-            </div>
-
-            <!-- Footer Area -->
-            <div class="form-action-footer">
-                <a asp-action="Index" class="btn-cancel-custom">
-                    Cancel
-                </a>
-                <button type="submit" class="btn-primary-custom">
-                    Save Changes
-                </button>
-            </div>
-        </form>
+            </form>
+        </div>
     </div>
 </div>
 

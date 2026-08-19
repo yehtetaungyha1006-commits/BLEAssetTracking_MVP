@@ -13,10 +13,37 @@ namespace AssetTracking.Web.Data
         public DbSet<BeaconTelemetry> BeaconTelemetries { get; set; }
         public DbSet<AlertLog> AlertLogs { get; set; }
         public DbSet<ScannerDevice> Scanners { get; set; }
+        public DbSet<Building> Buildings { get; set; }
+        public DbSet<Floor> Floors { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // Configure Building
+            modelBuilder.Entity<Building>(entity =>
+            {
+                entity.HasKey(e => e.BuildingId);
+                entity.Property(e => e.BuildingName).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.Description).HasMaxLength(250);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+            });
+
+            // Configure Floor
+            modelBuilder.Entity<Floor>(entity =>
+            {
+                entity.HasKey(e => e.FloorId);
+                entity.Property(e => e.FloorName).IsRequired().HasMaxLength(100);
+                entity.Property(e => e.FloorMapImagePath).HasMaxLength(250);
+                entity.Property(e => e.IsActive).HasDefaultValue(true);
+                entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+
+                entity.HasOne(f => f.Building)
+                      .WithMany(b => b.Floors)
+                      .HasForeignKey(f => f.BuildingId)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
 
             // Configure ScannerDevice
             modelBuilder.Entity<ScannerDevice>(entity =>
@@ -28,6 +55,16 @@ namespace AssetTracking.Web.Data
                 entity.Property(e => e.Location).IsRequired().HasMaxLength(100);
                 entity.Property(e => e.Status).IsRequired().HasMaxLength(50);
                 entity.Property(e => e.CreatedAt).HasDefaultValueSql("GETDATE()");
+
+                entity.HasOne(s => s.BuildingRef)
+                      .WithMany()
+                      .HasForeignKey(s => s.BuildingId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(s => s.FloorRef)
+                      .WithMany()
+                      .HasForeignKey(s => s.FloorId)
+                      .OnDelete(DeleteBehavior.Restrict);
             });
 
             // Configure BeaconDevice

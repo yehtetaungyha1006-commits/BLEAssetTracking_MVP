@@ -8,7 +8,157 @@ html {
   }
 }
 
+html,
+body {
+    width: 100%;
+    max-width: 100%;
+    min-height: 100vh;
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
 .btn:focus, .btn:active:focus, .btn-link.nav-link:focus, .form-control:focus, .form-check-input:focus {
   box-shadow: 0 0 0 0.1rem white, 0 0 0 0.25rem #258cfb;
 }
-
+
+/* Page Containers & Headers */
+.page-content,
+.container-fluid {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.beacons-header,
+.scanners-header,
+.live-header,
+.alerts-header,
+.edit-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 16px;
+    flex-wrap: wrap;
+    max-width: 100%;
+}
+
+/* Responsive Tables */
+.table-responsive {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.table {
+    width: 100%;
+    max-width: 100%;
+}
+
+/* Form Containers & Inputs */
+.form-container,
+.card-form {
+    width: min(100%, 720px);
+    max-width: 100%;
+    margin: 0 auto;
+}
+
+input,
+select,
+textarea {
+    max-width: 100%;
+}
+
+/* Chart & Dashboard Containers */
+.chart-container {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+}
+
+.dashboard-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 100%;
+}
+
+/* Filter & Search Bars */
+.filter-bar,
+.filter-card {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    width: 100%;
+    max-width: 100%;
+}
+
+.filter-bar input,
+.filter-bar select {
+    flex: 1 1 180px;
+    min-width: 0;
+}
+
+.filter-bar .btn,
+.filter-bar button {
+    flex: 0 0 auto;
+}
+
+/* ==========================================================================
+   GLOBAL DARK THEME FORM SELECT & DROPDOWN STYLING
+   ========================================================================== */
+
+.form-select,
+.form-control,
+.input-custom,
+.management-select {
+    background-color: #18243a !important;
+    color: #ffffff !important;
+    border: 1px solid #33415c !important;
+    border-radius: 0.5rem !important;
+    max-width: 100%;
+}
+
+.form-select:focus,
+.form-control:focus,
+.input-custom:focus,
+.management-select:focus {
+    border-color: #6366f1 !important;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.2) !important;
+    background-color: #18243a !important;
+    color: #ffffff !important;
+}
+
+/* Enforce dark theme option background & text contrast across all browsers */
+.form-select option,
+.input-custom option,
+.management-select option,
+select option {
+    background-color: #0f172a !important;
+    color: #ffffff !important;
+    padding: 8px 12px;
+}
+
+/* Form Container & Preview Layout Spacing */
+.form-group-custom {
+    position: relative;
+    margin-bottom: 1.25rem;
+    z-index: 1;
+}
+
+.image-preview-card {
+    border: 1px dashed var(--border-color, rgba(255, 255, 255, 0.15));
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    background-color: rgba(0, 0, 0, 0.2);
+    margin-top: 0.5rem;
+    z-index: 0;
+    max-width: 100%;
+}

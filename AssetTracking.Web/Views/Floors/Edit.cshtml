@@ -1,0 +1,239 @@
+@model Floor
+@{
+    ViewData["Title"] = "Edit Floor";
+    var buildings = ViewBag.Buildings as List<Building> ?? new List<Building>();
+    bool hasMap = !string.IsNullOrWhiteSpace(Model.FloorMapImagePath);
+}
+
+<style>
+    .create-beacon-page {
+        padding: 2rem 1rem;
+        max-width: 560px;
+        margin: 0 auto;
+    }
+    
+    .beacon-title-container {
+        margin-bottom: 1.5rem;
+    }
+
+    .beacon-title-container h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        background: linear-gradient(to right, #ffffff, #cbd5e1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.25rem;
+    }
+
+    .beacon-title-container p {
+        color: #94a3b8;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .beacon-form-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+    }
+
+    .beacon-form-body {
+        padding: 1.5rem;
+    }
+
+    .beacon-form-grid {
+        display: flex;
+        flex-direction: column;
+        gap: 1.25rem;
+    }
+
+    .label-custom {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .validation-error {
+        font-size: 0.85rem;
+        color: #f87171;
+        margin-top: 0.35rem;
+        font-weight: 500;
+        display: block;
+    }
+
+    .form-action-footer {
+        background-color: rgba(0, 0, 0, 0.15);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .btn-primary-custom {
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        color: #ffffff !important;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+        text-decoration: none;
+    }
+
+    .btn-cancel-custom {
+        background-color: transparent;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 0.5rem 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+    }
+
+    .image-preview-card {
+        border: 1px dashed var(--border-color, rgba(255, 255, 255, 0.15));
+        border-radius: 8px;
+        padding: 1rem;
+        text-align: center;
+        background-color: rgba(0, 0, 0, 0.2);
+        margin-top: 0.5rem;
+    }
+</style>
+
+<div class="create-beacon-page">
+    <!-- Page Header -->
+    <div class="beacon-title-container text-start">
+        <div class="d-flex align-items-center gap-2 mb-1" style="font-size: 0.85rem;">
+            <a href="/FloorMap" class="text-decoration-none text-muted"><i class="bi bi-map me-1"></i>Floor Map</a>
+            <span class="text-muted">/</span>
+            <a href="/Floors" class="text-decoration-none text-muted">Floors</a>
+            <span class="text-muted">/</span>
+            <span class="text-white fw-semibold">Edit Floor</span>
+        </div>
+        <h2>Edit Floor</h2>
+        <p>Modify floor plan image and details.</p>
+    </div>
+
+    @if (ViewBag.WarningMessage != null)
+    {
+        <div class="alert alert-warning border-0 mb-4 shadow-sm rounded-3 d-flex align-items-center p-3" style="background-color: rgba(255, 193, 7, 0.12); border-left: 4px solid #ffc107 !important;">
+            <i class="bi bi-exclamation-triangle-fill text-warning me-3 fs-5"></i>
+            <div class="text-white">@ViewBag.WarningMessage</div>
+        </div>
+    }
+
+    <!-- Form Card -->
+    <div class="beacon-form-card">
+        <form asp-action="Edit" method="post" enctype="multipart/form-data">
+            <input type="hidden" asp-for="FloorId" />
+            <input type="hidden" asp-for="FloorMapImagePath" />
+            <input type="hidden" asp-for="FloorNumber" />
+            <input type="hidden" asp-for="IsActive" />
+
+            <div class="beacon-form-body">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="font-size: 0.9rem; font-weight: 500;"></div>
+
+                <div class="beacon-form-grid">
+                    <!-- 1. Building Select -->
+                    <div class="form-group-custom">
+                        <label class="label-custom" asp-for="BuildingId">Building <span class="text-danger">*</span></label>
+                        <select asp-for="BuildingId" class="form-select input-custom" required>
+                            <option value="">-- Select Building --</option>
+                            @foreach (var b in buildings)
+                            {
+                                <option value="@b.BuildingId">@b.BuildingName</option>
+                            }
+                        </select>
+                        <span asp-validation-for="BuildingId" class="validation-error"></span>
+                    </div>
+
+                    <!-- 2. Floor Name -->
+                    <div class="form-group-custom">
+                        <label class="label-custom" asp-for="FloorName">Floor Name <span class="text-danger">*</span></label>
+                        <input asp-for="FloorName" class="form-control input-custom" placeholder="e.g. Floor 6" required maxlength="100" />
+                        <span asp-validation-for="FloorName" class="validation-error"></span>
+                    </div>
+
+                    <!-- 3. Change Floor Map Image -->
+                    <div class="form-group-custom">
+                        <label class="label-custom">Change Floor Map Image</label>
+                        <input type="file" id="mapImageFile" name="mapImageFile" class="form-control input-custom" accept=".png,.jpg,.jpeg,.webp,.svg,image/svg+xml" />
+                        <small class="text-muted d-block mt-1">Allowed formats: PNG, JPG, JPEG, WEBP, SVG. Leave empty to keep current map image.</small>
+                    </div>
+
+                    <!-- 4. Floor Plan Preview -->
+                    <div class="image-preview-card" id="preview-container">
+                        <span class="label-custom mb-2">Floor Plan Preview</span>
+                        @if (hasMap)
+                        {
+                            <img id="preview-img" src="@Model.FloorMapImagePath" alt="Floor Map Preview" style="max-width: 100%; max-height: 220px; border-radius: 6px; object-fit: contain;" />
+                        }
+                        else
+                        {
+                            <img id="preview-img" src="#" alt="Floor Map Preview" style="max-width: 100%; max-height: 220px; border-radius: 6px; object-fit: contain; display: none;" />
+                            <div id="no-map-placeholder" class="text-muted py-3">No floor map image uploaded yet.</div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Buttons -->
+            <div class="form-action-footer">
+                <a asp-action="Index" asp-route-buildingId="@Model.BuildingId" class="btn-cancel-custom">
+                    Cancel
+                </a>
+                <button type="submit" class="btn-primary-custom">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const fileInput = document.getElementById("mapImageFile");
+            const previewContainer = document.getElementById("preview-container");
+            const previewImg = document.getElementById("preview-img");
+            const noMapPlaceholder = document.getElementById("no-map-placeholder");
+
+            if (fileInput) {
+                fileInput.addEventListener("change", function () {
+                    const file = fileInput.files[0];
+                    if (file) {
+                        const reader = new FileReader();
+                        reader.onload = function (e) {
+                            previewImg.src = e.target.result;
+                            previewImg.style.display = "block";
+                            if (noMapPlaceholder) noMapPlaceholder.style.display = "none";
+                        };
+                        reader.readAsDataURL(file);
+                    }
+                });
+            }
+        });
+    </script>
+}

@@ -3,131 +3,145 @@
     ViewData["Title"] = "Edit Access Point";
 }
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
 <style>
-    .edit-scanner-container {
-        font-family: 'Outfit', sans-serif;
-        color: #1e293b;
-        margin-top: 1.5rem;
-        max-width: 650px;
+    .create-beacon-page {
+        padding: 2rem 1rem;
+        max-width: 540px;
+        margin: 0 auto;
+    }
+    
+    .beacon-title-container {
+        margin-bottom: 1.5rem;
     }
 
-    .edit-header h2 {
-        font-weight: 700;
+    .beacon-title-container h2 {
         font-size: 1.75rem;
-        background: linear-gradient(135deg, #1e293b 0%, #475569 100%);
+        font-weight: 700;
+        background: linear-gradient(to right, #ffffff, #cbd5e1);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.25rem;
     }
 
-    .edit-header p {
-        color: #64748b;
+    .beacon-title-container p {
+        color: #94a3b8;
         font-size: 0.95rem;
+        margin: 0;
     }
 
-    .card-form {
-        border: none;
-        border-radius: 1rem;
-        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05), 0 8px 10px -6px rgba(0, 0, 0, 0.05);
-        background-color: #ffffff;
-        border: 1px solid #f1f5f9;
-        padding: 2rem;
+    .beacon-form-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
     }
 
-    .form-group-custom {
-        margin-bottom: 1.5rem;
+    .beacon-form-body {
+        padding: 1.5rem;
+    }
+
+    .beacon-form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.25rem;
+    }
+
+    .beacon-form-grid .full-width {
+        grid-column: span 2;
     }
 
     .label-custom {
         font-weight: 600;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         text-transform: uppercase;
         letter-spacing: 0.05em;
-        color: #475569;
+        color: #94a3b8;
         margin-bottom: 0.5rem;
         display: block;
     }
 
     .input-custom {
-        border-radius: 0.5rem;
-        border: 1px solid #cbd5e1;
-        padding: 0.6rem 0.9rem;
+        background-color: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
         font-size: 0.95rem;
+        color: #ffffff !important;
         transition: all 0.2s ease;
-        color: #334155;
+        width: 100%;
     }
 
     .input-custom:focus {
-        border-color: #6366f1;
-        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
+        border-color: rgba(255, 255, 255, 0.25) !important;
+        background-color: rgba(255, 255, 255, 0.06) !important;
         outline: none;
+        box-shadow: none;
     }
 
     .input-readonly {
-        background-color: #f8fafc;
-        border-color: #e2e8f0;
-        color: #64748b;
+        background-color: rgba(0, 0, 0, 0.4) !important;
+        color: var(--text-muted) !important;
         cursor: not-allowed;
-    }
-
-    .input-readonly:focus {
-        box-shadow: none;
-        border-color: #e2e8f0;
     }
 
     .validation-error {
         font-size: 0.85rem;
-        color: #dc2626;
+        color: #f87171;
         margin-top: 0.35rem;
         font-weight: 500;
         display: block;
     }
 
-    .btn-save {
+    .form-action-footer {
+        background-color: rgba(0, 0, 0, 0.15);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .btn-primary-custom {
         background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
-        color: #ffffff;
-        font-weight: 600;
+        color: #ffffff !important;
         border: none;
-        border-radius: 0.5rem;
-        padding: 0.6rem 1.5rem;
-        font-size: 0.95rem;
-        transition: all 0.2s ease;
-    }
-
-    .btn-save:hover {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
-        color: #ffffff;
-    }
-
-    .btn-cancel {
-        background-color: #f1f5f9;
-        color: #475569;
+        border-radius: 6px;
+        padding: 0.5rem 1.5rem;
+        font-size: 0.9rem;
         font-weight: 600;
-        border: 1px solid #e2e8f0;
-        border-radius: 0.5rem;
-        padding: 0.6rem 1.5rem;
-        font-size: 0.95rem;
-        transition: all 0.2s ease;
+        cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
         text-decoration: none;
-        display: inline-block;
-        text-align: center;
     }
 
-    .btn-cancel:hover {
-        background-color: #e2e8f0;
-        color: #1e293b;
+    .btn-cancel-custom {
+        background-color: transparent;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 0.5rem 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
     }
 
     .readonly-badge {
         font-size: 0.7rem;
         font-weight: 700;
-        color: #64748b;
-        background-color: #f1f5f9;
+        color: var(--text-muted);
+        background-color: rgba(255, 255, 255, 0.08);
         padding: 0.15rem 0.4rem;
         border-radius: 0.25rem;
         margin-left: 0.5rem;
@@ -135,84 +149,100 @@
     }
 </style>
 
-<div class="edit-scanner-container container">
-    <div class="edit-header mb-4">
+<div class="create-beacon-page">
+    <div class="beacon-title-container text-start">
         <h2>Edit Access Point Details</h2>
-        <p>Modify receiver properties. Read-only fields cannot be altered from this panel.</p>
+        <p>Modify receiver properties and location details.</p>
     </div>
 
-    <div class="card-form">
+    <div class="beacon-form-card">
         <form asp-action="Edit" method="post">
-            <div asp-validation-summary="ModelOnly" class="text-danger mb-3"></div>
-
-            <!-- Hidden input for ScannerId to bind properly on post -->
             <input type="hidden" asp-for="ScannerId" />
 
-            <div class="form-group-custom">
-                <label class="label-custom">
-                    Access Point ID
-                    <span class="readonly-badge">Read-Only</span>
-                </label>
-                <input asp-for="ScannerId" class="form-control input-custom input-readonly" readonly />
-            </div>
+            <div class="beacon-form-body">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="font-size: 0.9rem; font-weight: 500;"></div>
 
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group-custom">
-                        <label class="label-custom" asp-for="Building">Building</label>
-                        <input asp-for="Building" class="form-control input-custom" placeholder="e.g. HQ Building" />
-                        <span asp-validation-for="Building" class="validation-error"></span>
+                <div class="beacon-form-grid">
+                    <div class="full-width">
+                        <div class="form-group-custom">
+                            <label class="label-custom">
+                                Access Point ID
+                                <span class="readonly-badge">Read-Only</span>
+                            </label>
+                            <input asp-for="ScannerId" class="form-control input-custom input-readonly" readonly />
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="form-group-custom">
+                            <label class="label-custom" asp-for="BuildingId">Building</label>
+                            <select id="edit-scanner-building" asp-for="BuildingId" class="form-select input-custom">
+                                <option value="">-- Select Building --</option>
+                                @if (ViewBag.Buildings != null)
+                                {
+                                    foreach (var b in (List<AssetTracking.Web.Models.Building>)ViewBag.Buildings)
+                                    {
+                                        <option value="@b.BuildingId">@b.BuildingName</option>
+                                    }
+                                }
+                            </select>
+                            <span asp-validation-for="Building" class="validation-error"></span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="form-group-custom">
+                            <label class="label-custom" asp-for="FloorId">Floor</label>
+                            <select id="edit-scanner-floor" asp-for="FloorId" class="form-select input-custom">
+                                <option value="">-- Select Floor --</option>
+                                @if (ViewBag.Floors != null)
+                                {
+                                    foreach (var f in (List<AssetTracking.Web.Models.Floor>)ViewBag.Floors)
+                                    {
+                                        <option value="@f.FloorId">@f.FloorName</option>
+                                    }
+                                }
+                            </select>
+                            <span asp-validation-for="Floor" class="validation-error"></span>
+                        </div>
+                    </div>
+
+                    <div class="full-width">
+                        <div class="form-group-custom">
+                            <label class="label-custom" asp-for="Location">Location / Room</label>
+                            <input asp-for="Location" class="form-control input-custom" placeholder="e.g. SiTEL Room" />
+                            <span asp-validation-for="Location" class="validation-error"></span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="form-group-custom">
+                            <label class="label-custom">
+                                Current Status
+                                <span class="readonly-badge">Read-Only</span>
+                            </label>
+                            <input asp-for="Status" class="form-control input-custom input-readonly" readonly />
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="form-group-custom">
+                            <label class="label-custom">
+                                Last Seen
+                                <span class="readonly-badge">Read-Only</span>
+                            </label>
+                            <input value="@AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(Model.LastSeen)" class="form-control input-custom input-readonly" readonly />
+                        </div>
                     </div>
                 </div>
-                <div class="col-md-6">
-                    <div class="form-group-custom">
-                        <label class="label-custom" asp-for="Floor">Floor</label>
-                        <input asp-for="Floor" class="form-control input-custom" placeholder="e.g. 1st Floor" />
-                        <span asp-validation-for="Floor" class="validation-error"></span>
-                    </div>
-                </div>
             </div>
 
-            <div class="form-group-custom">
-                <label class="label-custom" asp-for="Location">Location/Room</label>
-                <input asp-for="Location" class="form-control input-custom" placeholder="e.g. Conference Room A" />
-                <span asp-validation-for="Location" class="validation-error"></span>
-            </div>
-
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="form-group-custom">
-                        <label class="label-custom">
-                            Current Status
-                            <span class="readonly-badge">Read-Only</span>
-                        </label>
-                        <input asp-for="Status" class="form-control input-custom input-readonly" readonly />
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="form-group-custom">
-                        <label class="label-custom">
-                            Last Seen
-                            <span class="readonly-badge">Read-Only</span>
-                        </label>
-                        <input value="@AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(Model.LastSeen)" class="form-control input-custom input-readonly" readonly />
-                    </div>
-                </div>
-            </div>
-
-            <div class="form-group-custom">
-                <label class="label-custom">
-                    Created At
-                    <span class="readonly-badge">Read-Only</span>
-                </label>
-                <input value="@Model.CreatedAt.ToString("yyyy-MM-dd HH:mm:ss")" class="form-control input-custom input-readonly" readonly />
-            </div>
-
-            <div class="d-flex justify-content-between align-items-center mt-4">
-                <a asp-action="Index" class="btn-cancel">
+            <!-- Footer Area -->
+            <div class="form-action-footer">
+                <a asp-action="Index" class="btn-cancel-custom">
                     Cancel
                 </a>
-                <button type="submit" class="btn btn-save">
+                <button type="submit" class="btn-primary-custom">
                     Save Changes
                 </button>
             </div>
@@ -222,4 +252,31 @@
 
 @section Scripts {
     @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const buildingSelect = document.getElementById("edit-scanner-building");
+            const floorSelect = document.getElementById("edit-scanner-floor");
+            if (!buildingSelect || !floorSelect) return;
+
+            buildingSelect.addEventListener("change", async function () {
+                const buildingId = buildingSelect.value;
+                floorSelect.innerHTML = '<option value="">-- Select Floor --</option>';
+                if (!buildingId) return;
+
+                try {
+                    const response = await fetch('/api/floors?buildingId=' + buildingId);
+                    if (!response.ok) return;
+                    const floors = await response.json();
+                    floors.forEach(f => {
+                        const opt = document.createElement("option");
+                        opt.value = f.floorId;
+                        opt.textContent = f.floorName;
+                        floorSelect.appendChild(opt);
+                    });
+                } catch (err) {
+                    console.error("Error fetching floors for building:", err);
+                }
+            });
+        });
+    </script>
 }

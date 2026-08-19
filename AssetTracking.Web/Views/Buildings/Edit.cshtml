@@ -1,0 +1,209 @@
+@model Building
+@{
+    ViewData["Title"] = "Edit Building";
+}
+
+<style>
+    .create-beacon-page {
+        padding: 2rem 1rem;
+        max-width: 540px;
+        margin: 0 auto;
+    }
+    
+    .beacon-title-container {
+        margin-bottom: 1.5rem;
+    }
+
+    .beacon-title-container h2 {
+        font-size: 1.75rem;
+        font-weight: 700;
+        background: linear-gradient(to right, #ffffff, #cbd5e1);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        margin-bottom: 0.25rem;
+    }
+
+    .beacon-title-container p {
+        color: #94a3b8;
+        font-size: 0.95rem;
+        margin: 0;
+    }
+
+    .beacon-form-card {
+        background-color: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+        overflow: hidden;
+    }
+
+    .beacon-form-body {
+        padding: 1.5rem;
+    }
+
+    .beacon-form-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.25rem;
+    }
+
+    .label-custom {
+        font-weight: 600;
+        font-size: 0.8rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #94a3b8;
+        margin-bottom: 0.5rem;
+        display: block;
+    }
+
+    .input-custom {
+        background-color: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.95rem;
+        color: #ffffff !important;
+        transition: all 0.2s ease;
+        width: 100%;
+    }
+
+    .input-custom:focus {
+        border-color: rgba(255, 255, 255, 0.25) !important;
+        background-color: rgba(255, 255, 255, 0.06) !important;
+        outline: none;
+        box-shadow: none;
+    }
+
+    .validation-error {
+        font-size: 0.85rem;
+        color: #f87171;
+        margin-top: 0.35rem;
+        font-weight: 500;
+        display: block;
+    }
+
+    .form-action-footer {
+        background-color: rgba(0, 0, 0, 0.15);
+        border-top: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 1rem 1.5rem;
+        display: flex;
+        justify-content: flex-end;
+        gap: 0.75rem;
+    }
+
+    .btn-primary-custom {
+        background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+        color: #ffffff !important;
+        border: none;
+        border-radius: 6px;
+        padding: 0.5rem 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, transform 0.1s ease;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+        box-shadow: 0 2px 8px rgba(79, 70, 229, 0.2);
+        text-decoration: none;
+    }
+
+    .btn-cancel-custom {
+        background-color: transparent;
+        color: #ffffff !important;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 6px;
+        padding: 0.5rem 1.5rem;
+        font-size: 0.9rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background-color 0.2s ease, border-color 0.2s ease, transform 0.1s ease;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        height: 38px;
+    }
+
+    .btn-cancel-custom:hover {
+        background-color: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.4);
+    }
+</style>
+
+<div class="create-beacon-page">
+    <!-- Page Header -->
+    <div class="beacon-title-container text-start">
+        <div class="d-flex align-items-center gap-2 mb-1" style="font-size: 0.85rem;">
+            <a href="/FloorMap" class="text-decoration-none text-muted"><i class="bi bi-map me-1"></i>Floor Map</a>
+            <span class="text-muted">/</span>
+            <a href="/Buildings" class="text-decoration-none text-muted">Buildings</a>
+            <span class="text-muted">/</span>
+            <span class="text-white fw-semibold">Edit Building</span>
+        </div>
+        <h2>Edit Building</h2>
+        <p>Modify building details and active status.</p>
+    </div>
+
+    @if (ViewBag.WarningMessage != null)
+    {
+        <div class="alert alert-warning border-0 mb-4 shadow-sm rounded-3 d-flex align-items-center p-3" style="background-color: rgba(255, 193, 7, 0.12); border-left: 4px solid #ffc107 !important;">
+            <i class="bi bi-exclamation-triangle-fill text-warning me-3 fs-5"></i>
+            <div class="text-white">@ViewBag.WarningMessage</div>
+        </div>
+    }
+
+    <!-- Form Card -->
+    <div class="beacon-form-card">
+        <form asp-action="Edit" method="post">
+            <input type="hidden" asp-for="BuildingId" />
+            <div class="beacon-form-body">
+                <div asp-validation-summary="ModelOnly" class="text-danger mb-3" style="font-size: 0.9rem; font-weight: 500;"></div>
+
+                <div class="beacon-form-grid">
+                    <div>
+                        <div class="form-group-custom">
+                            <label class="label-custom" asp-for="BuildingName">Building Name <span class="text-danger">*</span></label>
+                            <input asp-for="BuildingName" class="form-control input-custom" placeholder="e.g. Siriraj Building" required maxlength="100" />
+                            <span asp-validation-for="BuildingName" class="validation-error"></span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="form-group-custom">
+                            <label class="label-custom" asp-for="Description">Description <span class="text-muted">(optional)</span></label>
+                            <textarea asp-for="Description" class="form-control input-custom" rows="3" placeholder="e.g. Main hospital operational building" maxlength="250"></textarea>
+                            <span asp-validation-for="Description" class="validation-error"></span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <div class="form-group-custom">
+                            <label class="label-custom" asp-for="IsActive">Status</label>
+                            <select asp-for="IsActive" class="form-select input-custom">
+                                <option value="true">Active</option>
+                                <option value="false">Inactive</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Footer Area -->
+            <div class="form-action-footer">
+                <a asp-action="Index" class="btn-cancel-custom">
+                    Cancel
+                </a>
+                <button type="submit" class="btn-primary-custom">
+                    Save Changes
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+@section Scripts {
+    @{await Html.RenderPartialAsync("_ValidationScriptsPartial");}
+}

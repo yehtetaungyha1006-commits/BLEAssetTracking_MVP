@@ -16,7 +16,13 @@ namespace AssetTracking.Web.Models
         public double? MapXPercent { get; set; }
         public double? MapYPercent { get; set; }
 
-        // Navigation property
+        public int? BuildingId { get; set; }
+        public int? FloorId { get; set; }
+
+        // Navigation properties
+        public Building? BuildingRef { get; set; }
+        public Floor? FloorRef { get; set; }
+
         public ICollection<BeaconTelemetry> Telemetries { get; set; } = new List<BeaconTelemetry>();
     }
 }
