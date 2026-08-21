@@ -622,7 +622,7 @@ function initSignalRConnection() {
         setTimeout(startSignalRConnection, 5000);
     });
 
-    signalRConnection.on("BeaconUpdate", (data) => {
+    const handleFloorMapBeaconUpdate = (data) => {
         if (!data) return;
 
         if (data.macAddress && data.macAddress.startsWith("00:11:22:33:44")) {
@@ -630,7 +630,10 @@ function initSignalRConnection() {
         }
 
         updateBeaconPosition(data);
-    });
+    };
+
+    signalRConnection.on("BeaconUpdate", handleFloorMapBeaconUpdate);
+    signalRConnection.on("TelemetryUpdated", handleFloorMapBeaconUpdate);
 
     startSignalRConnection();
 }
@@ -669,13 +672,25 @@ function updateSignalRStatus(text, statusClass) {
 function updateBeaconPosition(data) {
     if (!data) return;
 
+    const t8 = new Date();
     const mac = data.macAddress || "";
     const receiveTime = data.receiveTime ? new Date(data.receiveTime) : new Date();
+
+    if (data.t1_observedAt) {
+        const obsTime = new Date(data.t1_observedAt);
+        const latencyMs = t8 - obsTime;
+        console.log(`[FLOOR MAP T1->T8] Device: ${data.deviceName} (${data.macAddress}) | End-to-End Latency: ${latencyMs}ms | Selected AP: ${data.scannerId}`);
+    }
 
     let beacon = floorMapData.beacons.find(b =>
         (b.macAddress && mac && b.macAddress.toLowerCase() === mac.toLowerCase()) ||
         (b.beaconId && data.beaconId && String(b.beaconId) === String(data.beaconId))
     );
+
+    if (beacon && beacon.rawLastSeen && beacon.rawLastSeen > receiveTime) {
+        // Ignore stale out-of-order update
+        return;
+    }
 
     if (!beacon) {
         beacon = {

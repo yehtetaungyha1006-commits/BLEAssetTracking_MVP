@@ -96,7 +96,7 @@ namespace AssetTracking.Web.Controllers
                     })
                     .ToListAsync();
 
-                // Group recent telemetries by DeviceId and pick the one with highest RSSI
+                // Group recent telemetries by DeviceId and pick the one with highest RSSI for signal/AP selection
                 var recentGrouped = recentTelemetries
                     .GroupBy(t => t.DeviceId)
                     .ToDictionary(
@@ -104,7 +104,7 @@ namespace AssetTracking.Web.Controllers
                         g => g.OrderByDescending(t => t.Rssi).First()
                     );
 
-                // Dictionary of latest telemetries
+                // Dictionary of latest telemetries for accurate motion state and freshness
                 var latestDict = latestTelemetries
                     .ToDictionary(t => t.DeviceId);
 
@@ -115,32 +115,37 @@ namespace AssetTracking.Web.Controllers
 
                 var deviceData = devices.Select(device =>
                 {
-                    // Look up recent telemetry
                     recentGrouped.TryGetValue(device.DeviceId, out var selectedTelemetry);
-                    string status = "Offline";
+                    latestDict.TryGetValue(device.DeviceId, out var latestTelemetry);
 
+                    // Motion state MUST be evaluated against the latest telemetry by timestamp
+                    bool isMoving = latestTelemetry != null && latestTelemetry.IsMoving;
+
+                    string status = "Offline";
                     if (selectedTelemetry != null)
                     {
-                        status = selectedTelemetry.IsMoving ? "Moving" : "Online";
+                        status = isMoving ? "Moving" : "Online";
+                        onlineDevices++;
+                    }
+                    else if (latestTelemetry != null && (DateTime.Now - latestTelemetry.ReceiveTime).TotalSeconds <= 30)
+                    {
+                        status = isMoving ? "Moving" : "Online";
                         onlineDevices++;
                     }
                     else
                     {
-                        // Fall back to latest telemetry
-                        latestDict.TryGetValue(device.DeviceId, out selectedTelemetry);
                         status = "Offline";
                         offlineDevices++;
                     }
 
-                    bool isMoving = selectedTelemetry != null && selectedTelemetry.IsMoving;
-
-                    if (selectedTelemetry != null)
+                    if (status != "Offline")
                     {
-                        if (isMoving && status != "Offline")
+                        if (isMoving)
                         {
                             movingDevices++;
                         }
-                        if (selectedTelemetry.BatteryLevel < 20)
+                        var activeTel = selectedTelemetry ?? latestTelemetry;
+                        if (activeTel != null && activeTel.BatteryLevel < 20)
                         {
                             lowBatteryDevices++;
                         }
@@ -156,12 +161,12 @@ namespace AssetTracking.Web.Controllers
                     {
                         macAddress = device.MacAddress,
                         deviceName = device.DeviceName,
-                        rssi = selectedTelemetry?.Rssi ?? 0,
+                        rssi = selectedTelemetry?.Rssi ?? latestTelemetry?.Rssi ?? 0,
                         estimatedDistance = estimatedDistance,
-                        batteryLevel = selectedTelemetry?.BatteryLevel ?? 0,
-                        xAxis = selectedTelemetry?.XAxis ?? 0.0,
-                        yAxis = selectedTelemetry?.YAxis ?? 0.0,
-                        zAxis = selectedTelemetry?.ZAxis ?? 0.0,
+                        batteryLevel = selectedTelemetry?.BatteryLevel ?? latestTelemetry?.BatteryLevel ?? 0,
+                        xAxis = latestTelemetry?.XAxis ?? selectedTelemetry?.XAxis ?? 0.0,
+                        yAxis = latestTelemetry?.YAxis ?? selectedTelemetry?.YAxis ?? 0.0,
+                        zAxis = latestTelemetry?.ZAxis ?? selectedTelemetry?.ZAxis ?? 0.0,
                         isMoving = isMoving,
                         status = status,
                         lastSeen = device.LastSeen.HasValue ? AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(device.LastSeen.Value) : (DateTime?)null,

@@ -28,6 +28,18 @@ namespace AssetTracking.Web.Services
         public bool IsAvailable { get; set; }
         public DateTime DeterminedAt { get; set; }
         public string Reason { get; set; } = string.Empty;
+        public bool LocationChanged { get; set; }
+        public string? PreviousScannerId { get; set; }
+    }
+
+    public class TelemetryObservation
+    {
+        public string ScannerId { get; set; } = string.Empty;
+        public int RawRssi { get; set; }
+        public double FilteredRssi { get; set; }
+        public DateTime ReceiveTime { get; set; }
+        public bool IsFresh { get; set; } = true;
+        public double ObservationAgeMs { get; set; }
     }
 
     public class BeaconState
@@ -35,14 +47,19 @@ namespace AssetTracking.Web.Services
         public string? CurrentScannerId { get; set; }
         public string? CandidateScannerId { get; set; }
         public int StableReadingsCount { get; set; }
+        public ConcurrentDictionary<string, TelemetryObservation> RecentObservations { get; } = new(StringComparer.OrdinalIgnoreCase);
     }
 
     public class IndoorLocationSettings
     {
-        public int ObservationWindowSeconds { get; set; } = 10;
+        public int ObservationWindowSeconds { get; set; } = 2;
         public int MinimumRssi { get; set; } = -95;
-        public int SwitchMarginDb { get; set; } = 6;
-        public int RequiredStableReadings { get; set; } = 3;
+        public int NormalSwitchMarginDb { get; set; } = 4;
+        public int NormalConfirmationCount { get; set; } = 2;
+        public int FastSwitchMarginDb { get; set; } = 12;
+        public int FastConfirmationCount { get; set; } = 1;
+        public int CurrentApStaleSeconds { get; set; } = 2;
+        public double EmaAlpha { get; set; } = 0.6;
     }
 
     public class IndoorLocationService : IIndoorLocationService
@@ -63,10 +80,14 @@ namespace AssetTracking.Web.Services
             var settingsSection = configuration.GetSection("IndoorLocationSettings");
             _settings = new IndoorLocationSettings
             {
-                ObservationWindowSeconds = settingsSection.GetValue<int>("ObservationWindowSeconds", 10),
+                ObservationWindowSeconds = settingsSection.GetValue<int>("ObservationWindowSeconds", 2),
                 MinimumRssi = settingsSection.GetValue<int>("MinimumRssi", -95),
-                SwitchMarginDb = settingsSection.GetValue<int>("SwitchMarginDb", 6),
-                RequiredStableReadings = settingsSection.GetValue<int>("RequiredStableReadings", 3)
+                NormalSwitchMarginDb = settingsSection.GetValue<int>("NormalSwitchMarginDb", 4),
+                NormalConfirmationCount = settingsSection.GetValue<int>("NormalConfirmationCount", 2),
+                FastSwitchMarginDb = settingsSection.GetValue<int>("FastSwitchMarginDb", 12),
+                FastConfirmationCount = settingsSection.GetValue<int>("FastConfirmationCount", 1),
+                CurrentApStaleSeconds = settingsSection.GetValue<int>("CurrentApStaleSeconds", 2),
+                EmaAlpha = settingsSection.GetValue<double>("EmaAlpha", 0.6)
             };
         }
 
@@ -74,6 +95,70 @@ namespace AssetTracking.Web.Services
             int deviceId,
             CancellationToken cancellationToken = default)
         {
+            return await EvaluateInMemoryLocationAsync(deviceId, null, null, null, true, 0, cancellationToken);
+        }
+
+        public async Task<BeaconLocationResult> RecordTelemetryAndDetermineLocationAsync(
+            int deviceId,
+            string? scannerId,
+            int rssi,
+            DateTime receiveTime,
+            bool isFreshObservation = true,
+            double observationAgeMs = 0,
+            CancellationToken cancellationToken = default)
+        {
+            return await EvaluateInMemoryLocationAsync(deviceId, scannerId, rssi, receiveTime, isFreshObservation, observationAgeMs, cancellationToken);
+        }
+
+        private async Task<BeaconLocationResult> EvaluateInMemoryLocationAsync(
+            int deviceId,
+            string? incomingScannerId,
+            int? incomingRssi,
+            DateTime? incomingReceiveTime,
+            bool isFreshObservation,
+            double observationAgeMs,
+            CancellationToken cancellationToken)
+        {
+            var now = incomingReceiveTime ?? DateTime.Now;
+            var state = _beaconStates.GetOrAdd(deviceId, id => new BeaconState());
+
+            // 1. Record incoming telemetry observation with EMA filtering if provided AND fresh
+            bool isObsFresh = isFreshObservation && observationAgeMs <= 2000.0;
+            if (isFreshObservation && !string.IsNullOrEmpty(incomingScannerId) && incomingRssi.HasValue && incomingRssi.Value >= _settings.MinimumRssi)
+            {
+                double filteredRssi;
+                if (state.RecentObservations.TryGetValue(incomingScannerId, out var prevObs))
+                {
+                    filteredRssi = (_settings.EmaAlpha * incomingRssi.Value) + ((1.0 - _settings.EmaAlpha) * prevObs.FilteredRssi);
+                }
+                else
+                {
+                    filteredRssi = incomingRssi.Value;
+                }
+
+                state.RecentObservations[incomingScannerId] = new TelemetryObservation
+                {
+                    ScannerId = incomingScannerId,
+                    RawRssi = incomingRssi.Value,
+                    FilteredRssi = filteredRssi,
+                    ReceiveTime = now,
+                    IsFresh = isObsFresh,
+                    ObservationAgeMs = observationAgeMs
+                };
+            }
+
+            // 2. Prune observations older than ObservationWindowSeconds
+            var cutoff = now.AddSeconds(-_settings.ObservationWindowSeconds);
+            var staleKeys = state.RecentObservations
+                .Where(kvp => kvp.Value.ReceiveTime < cutoff)
+                .Select(kvp => kvp.Key)
+                .ToList();
+
+            foreach (var key in staleKeys)
+            {
+                state.RecentObservations.TryRemove(key, out _);
+            }
+
             using var scope = _scopeFactory.CreateScope();
             var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
@@ -87,19 +172,10 @@ namespace AssetTracking.Web.Services
                 {
                     DeviceId = deviceId,
                     IsAvailable = false,
-                    DeterminedAt = DateTime.Now,
+                    DeterminedAt = now,
                     Reason = "Device not found"
                 };
             }
-
-            var cutoff = DateTime.Now.AddSeconds(-_settings.ObservationWindowSeconds);
-            var minRssi = _settings.MinimumRssi;
-
-            var telemetries = await context.BeaconTelemetries
-                .AsNoTracking()
-                .Where(t => t.DeviceId == deviceId && t.ReceiveTime >= cutoff && t.ScannerId != null && t.Rssi >= minRssi)
-                .Select(t => new { t.ScannerId, t.Rssi })
-                .ToListAsync(cancellationToken);
 
             var scanners = await context.Scanners
                 .AsNoTracking()
@@ -109,32 +185,13 @@ namespace AssetTracking.Web.Services
                 .Where(s => s.Status != "Offline" && s.Status != "Disabled" && DateTimeHelper.IsOnline(s.LastSeen))
                 .ToDictionary(s => s.ScannerId);
 
-            var grouped = telemetries
-                .Where(t => activeScanners.ContainsKey(t.ScannerId!))
-                .GroupBy(t => t.ScannerId!)
-                .Select(g => new
-                {
-                    ScannerId = g.Key,
-                    MedianRssi = CalculateMedian(g.Select(x => x.Rssi))
-                })
+            // 3. Find active scanner candidates from in-memory observation cache
+            var activeObservations = state.RecentObservations.Values
+                .Where(obs => activeScanners.ContainsKey(obs.ScannerId))
+                .OrderByDescending(obs => obs.FilteredRssi)
                 .ToList();
 
-            if (_logger.IsEnabled(LogLevel.Debug))
-            {
-                var msg = $"Beacon location candidates | Device: {deviceId}";
-                foreach (var g in grouped.OrderByDescending(x => x.MedianRssi))
-                {
-                    var scName = activeScanners.TryGetValue(g.ScannerId, out var s) ? s.ScannerName : g.ScannerId;
-                    msg += $"\n{scName} | Median RSSI: {g.MedianRssi:F0}";
-                }
-                _logger.LogDebug(msg);
-            }
-
-            var strongestScanner = grouped
-                .OrderByDescending(g => g.MedianRssi)
-                .FirstOrDefault();
-
-            var state = _beaconStates.GetOrAdd(deviceId, id => new BeaconState());
+            var strongestObs = activeObservations.FirstOrDefault();
 
             if (state.CurrentScannerId == null)
             {
@@ -150,11 +207,19 @@ namespace AssetTracking.Web.Services
                 }
             }
 
-            string? strongestId = strongestScanner?.ScannerId;
-            double strongestMedian = strongestScanner?.MedianRssi ?? -999;
+            string? strongestId = strongestObs?.ScannerId;
+            double strongestRssi = strongestObs?.FilteredRssi ?? -999;
+            bool isStrongestFresh = strongestObs != null && strongestObs.IsFresh && (now - strongestObs.ReceiveTime).TotalSeconds <= 2.0;
+
+            bool locationChanged = false;
+            string? previousScannerId = state.CurrentScannerId;
 
             if (strongestId == null)
             {
+                if (state.CurrentScannerId != null)
+                {
+                    locationChanged = true;
+                }
                 state.CandidateScannerId = null;
                 state.StableReadingsCount = 0;
                 state.CurrentScannerId = null;
@@ -164,8 +229,10 @@ namespace AssetTracking.Web.Services
                     DeviceId = deviceId,
                     MacAddress = device.MacAddress,
                     IsAvailable = false,
-                    DeterminedAt = DateTime.Now,
-                    Reason = "No active scanner detected within observation window"
+                    DeterminedAt = now,
+                    Reason = "No active scanner detected within observation window",
+                    LocationChanged = locationChanged,
+                    PreviousScannerId = previousScannerId
                 };
             }
 
@@ -174,10 +241,11 @@ namespace AssetTracking.Web.Services
                 state.CurrentScannerId = strongestId;
                 state.CandidateScannerId = null;
                 state.StableReadingsCount = 0;
+                locationChanged = true;
 
                 var newScanner = activeScanners[strongestId];
-                _logger.LogInformation("Beacon location changed | Device: {DeviceId} | From: None | To: {ToScanner} | Location: {Location} | RSSI: {Rssi:F0}",
-                    deviceId, newScanner.ScannerName, newScanner.Location, strongestMedian);
+                _logger.LogInformation("[T5] In-Memory Location Initialized | Device: {DeviceId} | To: {ToScanner} ({Location}) | RSSI: {Rssi:F1}",
+                    deviceId, newScanner.ScannerName, newScanner.Location, strongestRssi);
             }
             else if (strongestId == state.CurrentScannerId)
             {
@@ -186,34 +254,56 @@ namespace AssetTracking.Web.Services
             }
             else
             {
-                var currentGroup = grouped.FirstOrDefault(g => g.ScannerId == state.CurrentScannerId);
-                double currentMedian = currentGroup?.MedianRssi ?? -999;
+                state.RecentObservations.TryGetValue(state.CurrentScannerId, out var currentObs);
+                double currentRssi = currentObs?.FilteredRssi ?? -999;
 
-                bool isEligible = strongestMedian >= currentMedian + _settings.SwitchMarginDb;
+                bool isCurrentStale = currentObs == null || (now - currentObs.ReceiveTime).TotalSeconds >= _settings.CurrentApStaleSeconds;
+                double margin = strongestRssi - currentRssi;
+
+                int requiredReadings;
+                if (isCurrentStale || margin >= _settings.FastSwitchMarginDb)
+                {
+                    requiredReadings = _settings.FastConfirmationCount;
+                }
+                else
+                {
+                    requiredReadings = _settings.NormalConfirmationCount;
+                }
+
+                bool isEligible = isCurrentStale || (margin >= _settings.NormalSwitchMarginDb);
 
                 if (isEligible)
                 {
-                    if (state.CandidateScannerId == strongestId)
+                    // CRITICAL FIX: Only increment confirmation count if the candidate observation is FRESH and <= 2000ms
+                    if (isStrongestFresh)
                     {
-                        state.StableReadingsCount++;
+                        if (state.CandidateScannerId == strongestId)
+                        {
+                            state.StableReadingsCount++;
+                        }
+                        else
+                        {
+                            state.CandidateScannerId = strongestId;
+                            state.StableReadingsCount = 1;
+                        }
+
+                        if (state.StableReadingsCount >= requiredReadings)
+                        {
+                            var oldScannerId = state.CurrentScannerId;
+                            state.CurrentScannerId = strongestId;
+                            state.CandidateScannerId = null;
+                            state.StableReadingsCount = 0;
+                            locationChanged = true;
+
+                            var oldScannerName = activeScanners.TryGetValue(oldScannerId, out var os) ? os.ScannerName : oldScannerId;
+                            var newScanner = activeScanners[strongestId];
+                            _logger.LogInformation("[T5/T6] In-Memory Location CHANGED | Device: {DeviceId} | From: {FromScanner} -> To: {ToScanner} ({Location}) | RSSI: {Rssi:F1} (Diff: {Margin:F1}dB, ReqObs: {ReqObs}, FreshObs: {Fresh})",
+                                deviceId, oldScannerName, newScanner.ScannerName, newScanner.Location, strongestRssi, margin, requiredReadings, isStrongestFresh);
+                        }
                     }
                     else
                     {
-                        state.CandidateScannerId = strongestId;
-                        state.StableReadingsCount = 1;
-                    }
-
-                    if (state.StableReadingsCount >= _settings.RequiredStableReadings)
-                    {
-                        var oldScannerId = state.CurrentScannerId;
-                        state.CurrentScannerId = strongestId;
-                        state.CandidateScannerId = null;
-                        state.StableReadingsCount = 0;
-
-                        var oldScannerName = activeScanners.TryGetValue(oldScannerId, out var os) ? os.ScannerName : oldScannerId;
-                        var newScanner = activeScanners[strongestId];
-                        _logger.LogInformation("Beacon location changed | Device: {DeviceId} | From: {FromScanner} | To: {ToScanner} | Location: {Location} | RSSI: {Rssi:F0}",
-                            deviceId, oldScannerName, newScanner.ScannerName, newScanner.Location, strongestMedian);
+                        _logger.LogDebug("[T5] Switching candidate {CandidateAP} skipped confirmation increment because observation is repeated/cached (Age: {Age:F0}ms)", strongestId, strongestObs?.ObservationAgeMs);
                     }
                 }
                 else
@@ -226,7 +316,7 @@ namespace AssetTracking.Web.Services
             var finalScannerId = state.CurrentScannerId;
             if (finalScannerId != null && activeScanners.TryGetValue(finalScannerId, out var selectedScanner))
             {
-                double repRssi = strongestId == finalScannerId ? strongestMedian : (grouped.FirstOrDefault(g => g.ScannerId == finalScannerId)?.MedianRssi ?? -95);
+                double repRssi = strongestId == finalScannerId ? strongestRssi : (state.RecentObservations.TryGetValue(finalScannerId, out var finalObs) ? finalObs.FilteredRssi : -95);
                 double distance = DistanceHelper.EstimateDistanceMeters((int)repRssi) ?? 0.0;
 
                 return new BeaconLocationResult
@@ -241,8 +331,10 @@ namespace AssetTracking.Web.Services
                     RepresentativeRssi = repRssi,
                     EstimatedDistance = distance,
                     IsAvailable = true,
-                    DeterminedAt = DateTime.Now,
-                    Reason = $"Selected scanner: {selectedScanner.ScannerName} (Median RSSI: {repRssi:F0} dBm)"
+                    DeterminedAt = now,
+                    Reason = $"Selected scanner: {selectedScanner.ScannerName} (Filtered RSSI: {repRssi:F1} dBm)",
+                    LocationChanged = locationChanged,
+                    PreviousScannerId = previousScannerId
                 };
             }
 
@@ -251,24 +343,11 @@ namespace AssetTracking.Web.Services
                 DeviceId = deviceId,
                 MacAddress = device.MacAddress,
                 IsAvailable = false,
-                DeterminedAt = DateTime.Now,
-                Reason = "Selected scanner is offline or unavailable"
+                DeterminedAt = now,
+                Reason = "Selected scanner is offline or unavailable",
+                LocationChanged = locationChanged,
+                PreviousScannerId = previousScannerId
             };
-        }
-
-        private static double CalculateMedian(IEnumerable<int> values)
-        {
-            var sorted = values.OrderBy(v => v).ToList();
-            int count = sorted.Count;
-            if (count == 0) return 0;
-            if (count % 2 == 1)
-            {
-                return sorted[count / 2];
-            }
-            else
-            {
-                return (sorted[count / 2 - 1] + sorted[count / 2]) / 2.0;
-            }
         }
     }
 }

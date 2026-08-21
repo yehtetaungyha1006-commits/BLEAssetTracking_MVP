@@ -588,61 +588,69 @@
             startSignalR();
         });
 
-        // Handle Receive Telemetry
-        connection.on("BeaconUpdate", (telemetry) => {
+        const handleTelemetryUpdate = (telemetry) => {
             if (telemetry.macAddress && telemetry.macAddress.startsWith("00:11:22:33:44")) {
                 return;
             }
             lastTelemetryTime = Date.now();
             // Save state
             telemetry.parsedReceiveTime = new Date(telemetry.receiveTime);
-            
+
             // Push to history
             const mac = telemetry.macAddress;
             devicesHistory[mac] = devicesHistory[mac] || [];
-            
+
             const now = new Date();
             // Filter out old records (older than 30s)
             devicesHistory[mac] = devicesHistory[mac].filter(t => (now - t.parsedReceiveTime) <= 30000);
-            
+
             // Push new
             devicesHistory[mac].push(telemetry);
-            
-            // Sort by RSSI descending (strongest RSSI first)
-            devicesHistory[mac].sort((a, b) => b.rssi - a.rssi);
-            
-            // The selected telemetry is the strongest one
-            const selected = devicesHistory[mac][0];
+
+            // Sort by RSSI descending (strongest RSSI first) for signal info
+            const sortedByRssi = [...devicesHistory[mac]].sort((a, b) => b.rssi - a.rssi);
+            const selected = Object.assign({}, sortedByRssi[0]);
+
+            // Motion status MUST always reflect the latest telemetry update
+            selected.isMoving = !!telemetry.isMoving;
             selected.status = selected.isMoving ? "Moving" : "Online";
-            
+
             devices[mac] = selected;
-            
+
             // Immediately draw/update this single row to keep it responsive
             updateOrAddRow(selected);
-            
+
             // Re-calculate counts
             updateMetrics();
-        });
+        };
+
+        connection.on("BeaconUpdate", handleTelemetryUpdate);
+        connection.on("TelemetryUpdated", handleTelemetryUpdate);
 
         // Loop every 1 second to update online/offline states and counts
         setInterval(() => {
             const now = new Date();
-            
+
             for (const mac in devicesHistory) {
                 // Filter out telemetries older than 30 seconds
                 devicesHistory[mac] = (devicesHistory[mac] || [])
                     .filter(t => (now - t.parsedReceiveTime) <= 30000);
 
                 if (devicesHistory[mac].length > 0) {
-                    // Sort and select the one with highest RSSI
-                    devicesHistory[mac].sort((a, b) => b.rssi - a.rssi);
-                    const selected = devicesHistory[mac][0];
+                    const sortedByRssi = [...devicesHistory[mac]].sort((a, b) => b.rssi - a.rssi);
+                    const sortedByTime = [...devicesHistory[mac]].sort((a, b) => b.parsedReceiveTime - a.parsedReceiveTime);
+
+                    const selected = Object.assign({}, sortedByRssi[0]);
+                    const latest = sortedByTime[0];
+
+                    selected.isMoving = !!latest.isMoving;
                     selected.status = selected.isMoving ? "Moving" : "Online";
                     devices[mac] = selected;
                 } else {
                     // No telemetry in last 30 seconds -> Offline
                     if (devices[mac]) {
                         devices[mac].status = "Offline";
+                        devices[mac].isMoving = false;
                     }
                 }
             }

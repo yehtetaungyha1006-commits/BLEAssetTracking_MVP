@@ -13,9 +13,12 @@ namespace AssetTracking.Web.Controllers
     {
         private readonly AppDbContext _context;
 
-        public LiveTrackingController(AppDbContext context)
+        private readonly ILogger<LiveTrackingController> _logger;
+
+        public LiveTrackingController(AppDbContext context, ILogger<LiveTrackingController> logger)
         {
             _context = context;
+            _logger = logger;
         }
 
         // GET: /LiveTracking
@@ -29,46 +32,57 @@ namespace AssetTracking.Web.Controllers
         [HttpGet("Data")]
         public async Task<IActionResult> GetLiveData()
         {
+            var t1 = DateTime.UtcNow; // [T-LIVE-1] API request received
             var now = DateTime.Now;
             var cutoff30 = now.AddSeconds(-30);
 
-            var latestTelemetryIdsQuery = _context.BeaconTelemetries
+            // 1. Load all registered BeaconDevices as base dataset
+            var devices = await _context.BeaconDevices
                 .AsNoTracking()
+                .ToListAsync();
+
+            var deviceIds = devices.Select(d => d.DeviceId).ToList();
+
+            var t2 = DateTime.UtcNow; // [T-LIVE-2] Database query started
+
+            // 2. Efficiently fetch latest telemetry IDs per registered device
+            var latestTelemetryIds = await _context.BeaconTelemetries
+                .AsNoTracking()
+                .Where(t => deviceIds.Contains(t.DeviceId))
                 .GroupBy(t => t.DeviceId)
-                .Select(g => g.Max(t => t.TelemetryId));
+                .Select(g => g.Max(t => t.TelemetryId))
+                .ToListAsync();
 
-            var latestTelemetriesQuery = _context.BeaconTelemetries
+            // 3. Fetch latest telemetry records by Primary Key ID
+            var latestTelemetries = await _context.BeaconTelemetries
                 .AsNoTracking()
-                .Where(t => latestTelemetryIdsQuery.Contains(t.TelemetryId));
+                .Where(t => latestTelemetryIds.Contains(t.TelemetryId))
+                .ToListAsync();
 
-            var rawData = await (from b in _context.BeaconDevices.AsNoTracking()
-                                 join t in latestTelemetriesQuery on b.DeviceId equals t.DeviceId into tGroup
-                                 from lt in tGroup.DefaultIfEmpty()
-                                 join s in _context.Scanners.AsNoTracking() on lt.ScannerId equals s.ScannerId into sGroup
-                                 from sc in sGroup.DefaultIfEmpty()
-                                 select new
-                                 {
-                                     b.DeviceId,
-                                     b.DeviceName,
-                                     b.MacAddress,
-                                     b.LastSeen,
-                                     LatestTelemetryId = (long?)lt.TelemetryId,
-                                     Rssi = (int?)lt.Rssi,
-                                     BatteryLevel = (int?)lt.BatteryLevel,
-                                     IsMoving = (bool?)lt.IsMoving,
-                                     ReceiveTime = (DateTime?)lt.ReceiveTime,
-                                     ScannerId = lt.ScannerId,
-                                     ScannerName = sc.ScannerName,
-                                     Building = sc.Building,
-                                     Floor = sc.Floor,
-                                     Location = sc.Location
-                                 })
-                                 .ToListAsync();
+            // 4. Fetch associated scanners
+            var scannerIds = latestTelemetries
+                .Where(t => !string.IsNullOrEmpty(t.ScannerId))
+                .Select(t => t.ScannerId!)
+                .Distinct()
+                .ToList();
 
-            var data = rawData.Select(d => {
-                var hasLatestTelemetry = d.LatestTelemetryId.HasValue;
-                DateTime? telemetryTime = hasLatestTelemetry ? AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(d.ReceiveTime!.Value) : null;
-                
+            var scanners = await _context.Scanners
+                .AsNoTracking()
+                .Where(s => scannerIds.Contains(s.ScannerId))
+                .ToDictionaryAsync(s => s.ScannerId, s => s);
+
+            var t3 = DateTime.UtcNow; // [T-LIVE-3] Database query completed
+
+            var telemetryDict = latestTelemetries.ToDictionary(t => t.DeviceId);
+
+            // 5. DTO Mapping starting from all registered devices
+            var data = devices.Select(d =>
+            {
+                telemetryDict.TryGetValue(d.DeviceId, out var lt);
+
+                bool hasLatestTelemetry = lt != null;
+                DateTime? telemetryTime = hasLatestTelemetry ? AssetTracking.Web.Helpers.DateTimeHelper.EnsureLocal(lt!.ReceiveTime) : null;
+
                 string status = "Offline";
                 if (hasLatestTelemetry && telemetryTime.HasValue && telemetryTime.Value >= cutoff30)
                 {
@@ -76,27 +90,43 @@ namespace AssetTracking.Web.Controllers
                 }
 
                 double? estimatedDistance = null;
-                if (status != "Offline" && d.Rssi.HasValue)
+                if (status != "Offline" && lt?.Rssi != null)
                 {
-                    estimatedDistance = AssetTracking.Web.Helpers.DistanceHelper.EstimateDistanceMeters(d.Rssi.Value);
+                    estimatedDistance = AssetTracking.Web.Helpers.DistanceHelper.EstimateDistanceMeters(lt.Rssi);
                 }
 
-                return new {
-                    deviceName = d.DeviceName ?? "Unnamed Beacon",
+                ScannerDevice? sc = null;
+                if (lt != null && !string.IsNullOrEmpty(lt.ScannerId))
+                {
+                    scanners.TryGetValue(lt.ScannerId, out sc);
+                }
+
+                return new
+                {
+                    deviceId = d.DeviceId,
+                    deviceName = !string.IsNullOrWhiteSpace(d.DeviceName) ? d.DeviceName : "Unnamed Beacon",
                     macAddress = d.MacAddress,
                     status = status,
-                    isMoving = hasLatestTelemetry && d.IsMoving == true,
-                    scannerId = hasLatestTelemetry ? (d.ScannerId ?? "-") : "-",
-                    building = hasLatestTelemetry ? (d.Building ?? "-") : "-",
-                    floor = hasLatestTelemetry ? (d.Floor ?? "-") : "-",
-                    location = hasLatestTelemetry ? (d.Location ?? "-") : "-",
-                    rssi = hasLatestTelemetry ? (d.Rssi ?? 0) : 0,
+                    isMoving = hasLatestTelemetry && lt!.IsMoving,
+                    scannerId = hasLatestTelemetry ? (lt!.ScannerId ?? "-") : "-",
+                    scannerName = sc?.ScannerName ?? (lt?.ScannerId ?? "-"),
+                    building = sc?.Building ?? "-",
+                    floor = sc?.Floor ?? "-",
+                    location = sc?.Location ?? "-",
+                    rssi = hasLatestTelemetry ? lt!.Rssi : 0,
                     estimatedDistance = estimatedDistance,
-                    battery = hasLatestTelemetry ? (d.BatteryLevel ?? 0) : 0,
+                    battery = hasLatestTelemetry ? lt!.BatteryLevel : 0,
                     lastSeen = AssetTracking.Web.Helpers.DateTimeHelper.FormatLastSeen(d.LastSeen),
                     rawLastSeen = d.LastSeen
                 };
             }).ToList();
+
+            var t4 = DateTime.UtcNow; // [T-LIVE-4] DTO mapping completed
+            var dbMs = (t3 - t2).TotalMilliseconds;
+            var totalMs = (t4 - t1).TotalMilliseconds;
+
+            _logger.LogInformation("[T-LIVE-5] LiveTracking API response prepared | Devices: {DeviceCount} | Telemetries: {TelCount} | DbMs: {DbMs:F1}ms | TotalMs: {TotalMs:F1}ms",
+                devices.Count, latestTelemetries.Count, dbMs, totalMs);
 
             return Json(data);
         }

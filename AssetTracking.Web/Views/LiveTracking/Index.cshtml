@@ -185,7 +185,7 @@
 <div class="container-fluid page-shell">
     <div class="live-header page-header mb-3">
         <h2>Live Beacon Tracking</h2>
-        <p class="text-muted mb-0">Real-time mapping of BLE beacons and their nearest Access Point positions.</p>
+        <p class="text-muted mb-0">หน้าแสดงข้อมูลของ BLE beacons และ Access Point แบบ Real-time แบบละเอียด</p>
     </div>
 
     <!-- Metrics Cards -->
@@ -457,11 +457,31 @@
             offlineBeaconsCount.innerText = offlineCount;
         }
 
+        let isFetchInProgress = false;
+
         async function fetchLiveTracking() {
+            if (isFetchInProgress) return;
+            isFetchInProgress = true;
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+            const startTime = performance.now();
+            console.log(`[LiveTracking][REQUEST] URL: /LiveTracking/Data | Method: GET | StartedAt: ${new Date().toISOString()}`);
+
             try {
-                const response = await fetch('/LiveTracking/Data');
-                if (!response.ok) throw new Error('Network error');
+                const response = await fetch('/LiveTracking/Data', { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                const elapsedMs = Math.round(performance.now() - startTime);
+
+                if (!response.ok) {
+                    console.error(`[LiveTracking][ERROR] HTTP Status: ${response.status} | ElapsedMs: ${elapsedMs}ms`);
+                    throw new Error(`HTTP Error ${response.status}`);
+                }
+
                 const data = await response.json();
+                console.log(`[LiveTracking][RESPONSE] HTTP Status: 200 | ElapsedMs: ${elapsedMs}ms | BeaconCount: ${data.length}`);
 
                 window.lastSystemUpdateTime = Date.now();
 
@@ -491,8 +511,8 @@
                         <td colspan="11" class="text-center py-5 text-muted">
                             <div class="d-flex flex-column align-items-center gap-2">
                                 <i class="bi bi-broadcast fs-2 text-secondary"></i>
-                                <div class="fw-semibold">No Beacon Detected</div>
-                                <div class="small text-secondary">Please ensure your Access Points are online.</div>
+                                <div class="fw-semibold">No Beacon Registered</div>
+                                <div class="small text-secondary">Please add registered Beacons to the system.</div>
                             </div>
                         </td>
                     </tr>`;
@@ -504,13 +524,20 @@
                 offlineBeaconsCount.innerText = offline;
 
             } catch (err) {
-                console.error('Error fetching live tracking metrics:', err);
-                trackingBody.innerHTML = `<tr>
-                    <td colspan="11" class="text-center py-4 text-danger font-semibold">
-                        <i class="bi bi-exclamation-triangle-fill me-2"></i>
-                        Failed to fetch live beacon tracking updates. Retrying...
-                    </td>
-                </tr>`;
+                clearTimeout(timeoutId);
+                const elapsedMs = Math.round(performance.now() - startTime);
+                console.error(`[LiveTracking][ERROR] Error: ${err.message} | ElapsedMs: ${elapsedMs}ms`);
+
+                if (Object.keys(deviceDataStore).length === 0) {
+                    trackingBody.innerHTML = `<tr>
+                        <td colspan="11" class="text-center py-4 text-danger font-semibold">
+                            <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                            Unable to load live tracking data. Retrying...
+                        </td>
+                    </tr>`;
+                }
+            } finally {
+                isFetchInProgress = false;
             }
         }
 
@@ -527,20 +554,39 @@
                 .withAutomaticReconnect([0, 2000, 5000, 10000, 20000])
                 .build();
 
-            signalRConnection.on("BeaconUpdate", (data) => {
+            const handleBeaconUpdate = (data) => {
                 if (!data) return;
+                const t8 = new Date(); // T8: Browser received update
 
                 if (data.macAddress && data.macAddress.startsWith("00:11:22:33:44")) {
                     return;
                 }
 
+                const deviceId = data.deviceId || data.beaconId || (data.major && data.minor ? `${data.major}-${data.minor}` : data.macAddress);
+                const key = String(deviceId);
+                const receiveTime = data.receiveTime ? new Date(data.receiveTime) : new Date();
+
+                const prevData = deviceDataStore[key];
+                if (prevData && prevData.rawLastSeen) {
+                    const prevTime = new Date(prevData.rawLastSeen);
+                    if (receiveTime < prevTime) {
+                        return; // Ignore stale out-of-order update
+                    }
+                }
+
+                if (data.t1_observedAt) {
+                    const obsTime = new Date(data.t1_observedAt);
+                    const endToEndMs = t8 - obsTime;
+                    console.log(`[LIVE TRACKING T1->T8] DeviceId: ${data.deviceId} (${data.deviceName}) | End-to-End Latency: ${endToEndMs}ms | Selected AP: ${data.scannerId}`);
+                }
+
                 // Reset global update timer
                 window.lastSystemUpdateTime = Date.now();
 
-                const key = data.macAddress;
                 const now = new Date();
-                
+
                 const updatedBeacon = {
+                    deviceId: data.deviceId,
                     deviceName: data.deviceName || "Unnamed Beacon",
                     macAddress: data.macAddress,
                     status: data.status || "Online",
@@ -553,14 +599,13 @@
                     estimatedDistance: data.rssi ? estimateDistanceMeters(data.rssi) : null,
                     battery: data.batteryLevel,
                     lastSeen: "just now",
-                    rawLastSeen: now.toISOString()
+                    rawLastSeen: receiveTime.toISOString()
                 };
 
-                const prevData = deviceDataStore[key];
                 deviceDataStore[key] = updatedBeacon;
 
-                const macSafe = key.replace(/:/g, '');
-                const row = document.getElementById(`row-${macSafe}`);
+                const deviceIdSafe = key.replace(/[^a-zA-Z0-9_-]/g, '');
+                const row = document.getElementById(`row-device-${deviceIdSafe}`) || document.getElementById(`row-${deviceIdSafe}`);
                 const rowClass = updatedBeacon.status === "Offline" ? "row-offline" : (updatedBeacon.isMoving ? "row-moving" : "row-online");
 
                 if (row) {
@@ -579,20 +624,25 @@
                     }
 
                     const newRow = document.createElement('tr');
-                    newRow.id = `row-${macSafe}`;
+                    newRow.id = `row-device-${deviceIdSafe}`;
+                    newRow.setAttribute('data-device-id', deviceId);
                     newRow.className = rowClass;
                     newRow.innerHTML = renderRowHtml(updatedBeacon);
                     trackingBody.appendChild(newRow);
                 }
 
                 updateMetricsCounts();
-            });
+            };
+
+            signalRConnection.on("BeaconUpdate", handleBeaconUpdate);
+            signalRConnection.on("TelemetryUpdated", handleBeaconUpdate);
 
             signalRConnection.start().catch(err => console.error("SignalR Connection Error:", err));
         }
 
-        // Initial fetch then init SignalR and the offline checking interval
-        fetchLiveTracking().then(() => {
+        // Run initial REST fetch and start SignalR independently in parallel
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchLiveTracking();
             initSignalR();
             setInterval(checkOfflineStatus, 5000);
         });

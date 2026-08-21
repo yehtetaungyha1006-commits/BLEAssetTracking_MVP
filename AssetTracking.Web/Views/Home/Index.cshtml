@@ -193,7 +193,7 @@
     <!-- Dashboard Header -->
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2 pb-2" style="border-bottom: 1px solid var(--border-color);">
         <div>
-            <h2 class="h5 fw-bold text-white mb-0">Dashboard Overview</h2>
+            <h2 class="h5 fw-bold text-white mb-0">Dashboard</h2>
         </div>
         <div class="d-flex align-items-center gap-3 text-muted animate-fade" style="font-size: 0.85rem;">
             <div>
@@ -325,6 +325,8 @@
 </div>
 
 @section Scripts {
+    <!-- SignalR Client Script -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/microsoft-signalr/8.0.7/signalr.min.js"></script>
     <!-- Chart.js Script via CDN -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     
@@ -339,6 +341,7 @@
         let batteryChart = null;
         const rssiHistory = {};
         const timeLabels = [];
+        let isFetchingDashboard = false;
 
         // Helper: Calculate relative time string
         function getRelativeTimeStr(lastSeenStr) {
@@ -391,6 +394,9 @@
 
         // Fetch dashboard statistics and devices
         async function fetchDashboard() {
+            if (isFetchingDashboard) return;
+            isFetchingDashboard = true;
+
             try {
                 const response = await fetch('/api/dashboard');
                 if (!response.ok) {
@@ -521,6 +527,8 @@
 
             } catch (err) {
                 console.error('Error loading dashboard data:', err);
+            } finally {
+                isFetchingDashboard = false;
             }
         }
 
@@ -605,6 +613,41 @@
             }
         }
 
+        let signalRConnection = null;
+        function initSignalR() {
+            if (typeof signalR === "undefined") return;
+            signalRConnection = new signalR.HubConnectionBuilder()
+                .withUrl("/beaconHub")
+                .withAutomaticReconnect([0, 2000, 5000, 10000, 20000])
+                .build();
+
+            signalRConnection.on("BeaconUpdate", (data) => {
+                if (!data) return;
+                const t8 = new Date(); // T8: Browser received update
+                
+                if (data.macAddress && data.macAddress.startsWith("00:11:22:33:44")) return;
+
+                if (data.t1_observedAt && data.t7_signalrBroadcast) {
+                    const obsTime = new Date(data.t1_observedAt);
+                    const broadcastTime = new Date(data.t7_signalrBroadcast);
+                    const totalEndToEndMs = t8 - obsTime;
+                    const networkBroadcastMs = t8 - broadcastTime;
+                    console.log(`[DIAGNOSTICS T1->T8] Device: ${data.deviceName} (${data.macAddress}) | End-to-End Latency: ${totalEndToEndMs}ms | SignalR Transit: ${networkBroadcastMs}ms | Selected AP: ${data.scannerId}`);
+                }
+
+                // Immediately update dashboard view on real-time update
+                fetchDashboard().then(() => {
+                    const t9 = new Date(); // T9: UI finished rendering
+                    if (data.t1_observedAt) {
+                        const totalUiMs = t9 - new Date(data.t1_observedAt);
+                        console.log(`[DIAGNOSTICS T1->T9] Full End-to-End Latency to UI Render: ${totalUiMs}ms`);
+                    }
+                });
+            });
+
+            signalRConnection.start().catch(err => console.error("SignalR Connection Error:", err));
+        }
+
         // Perform initial fetch on page load
         document.addEventListener('DOMContentLoaded', () => {
             // Clock Logic
@@ -615,11 +658,14 @@
                 }
             }
             updateClock();
-            setInterval(updateClock, 1000);
+            setInterval(updateClock, 2000);
 
-            fetchDashboard();
-            // Polling interval of 5 seconds as requested in Sprint 3.5
-            setInterval(fetchDashboard, 5000);
+            fetchDashboard().then(() => {
+                initSignalR();
+            });
+
+            // Polling loop as fallback (1.5 seconds)
+            setInterval(fetchDashboard, 1500);
         });
     </script>
 }

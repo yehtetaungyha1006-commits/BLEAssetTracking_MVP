@@ -13,6 +13,11 @@ namespace AssetTracking.Shared
         public double ZAxis { get; set; }
         public bool IsMoving { get; set; }
         public DateTime ReceiveTime { get; set; }
+        public DateTime? ObservedAt { get; set; }
+        public DateTime? SentAt { get; set; }
+        public bool IsFreshObservation { get; set; } = true;
+        public bool IsHeartbeat { get; set; } = false;
+        public double ObservationAgeMs { get; set; }
 
         public int Major { get; set; }
         public int Minor { get; set; }
